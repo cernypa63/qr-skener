@@ -4,16 +4,13 @@ import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.ToneGenerator
-import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.util.Patterns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,18 +22,24 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,7 +50,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -59,9 +65,20 @@ import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import cz.pavel.qrskener.R
+import cz.pavel.qrskener.data.FtpUploader
 import cz.pavel.qrskener.data.ScannerSettings
 import cz.pavel.qrskener.data.SettingsRepository
+import cz.pavel.qrskener.data.UploadResult
+import cz.pavel.qrskener.scan.CodeParser
+import cz.pavel.qrskener.scan.CsvBuilder
+import cz.pavel.qrskener.scan.ScanRecord
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.Executors
+
+private const val DUPLICATE_WINDOW_MILLIS = 2000L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,14 +86,17 @@ fun ScannerScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val repository = remember { SettingsRepository(context) }
     val settings by repository.settings.collectAsState(initial = ScannerSettings())
+    val scope = rememberCoroutineScope()
 
+    val records: SnapshotStateList<ScanRecord> = remember { emptyList<ScanRecord>().toMutableStateList() }
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
                 PackageManager.PERMISSION_GRANTED
         )
     }
-    var result by remember { mutableStateOf<String?>(null) }
+    var confirmFinish by remember { mutableStateOf(false) }
+    var uploading by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -86,10 +106,20 @@ fun ScannerScreen(onBack: () -> Unit) {
         if (!hasPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
+    val total = records.sumOf { it.amount ?: 0.0 }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.scanner_title)) },
+                title = {
+                    Column {
+                        Text(stringResource(R.string.total_amount, formatAmount(total)))
+                        Text(
+                            text = stringResource(R.string.scanned_count, records.size),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -99,29 +129,155 @@ fun ScannerScreen(onBack: () -> Unit) {
                     }
                 }
             )
+        },
+        bottomBar = {
+            Button(
+                onClick = { confirmFinish = true },
+                enabled = records.isNotEmpty() && !uploading,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .height(56.dp)
+            ) {
+                if (uploading) {
+                    CircularProgressIndicator(modifier = Modifier.height(24.dp))
+                } else {
+                    Text(stringResource(R.string.finish_action))
+                }
+            }
         }
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            when {
-                !hasPermission -> PermissionRequest(
-                    onRequest = { permissionLauncher.launch(Manifest.permission.CAMERA) }
-                )
-
-                result == null -> CameraPreview { code ->
-                    result = code
-                    onCodeDetected(context, code, settings)
+            Box(modifier = Modifier.weight(1f)) {
+                if (hasPermission) {
+                    CameraPreview { code ->
+                        val last = records.lastOrNull()
+                        val now = System.currentTimeMillis()
+                        val duplicate = last != null && last.rawCode == code &&
+                            now - last.timestampMillis < DUPLICATE_WINDOW_MILLIS
+                        if (!duplicate) {
+                            records.add(CodeParser.parse(code, settings, now))
+                            onCodeDetected(context, code, settings)
+                        }
+                    }
+                } else {
+                    PermissionRequest(
+                        onRequest = { permissionLauncher.launch(Manifest.permission.CAMERA) }
+                    )
                 }
+            }
 
-                else -> ResultCard(
-                    code = result!!,
-                    onScanAgain = { result = null },
-                    onCopy = { copyToClipboard(context, result!!) },
-                    onOpenLink = { openLink(context, result!!) }
+            HorizontalDivider()
+
+            RecordList(
+                records = records,
+                onRemove = { record -> records.remove(record) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+
+    if (confirmFinish) {
+        AlertDialog(
+            onDismissRequest = { confirmFinish = false },
+            title = { Text(stringResource(R.string.finish_action)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.finish_summary,
+                        records.size,
+                        formatAmount(total)
+                    )
                 )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmFinish = false
+                    uploading = true
+                    scope.launch {
+                        val result = uploadCsv(settings, records.toList())
+                        uploading = false
+                        when (result) {
+                            is UploadResult.Success -> {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.upload_success, result.remotePath),
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                records.clear()
+                                onBack()
+                            }
+
+                            is UploadResult.Failure -> Toast.makeText(
+                                context,
+                                context.getString(R.string.upload_failed, result.message),
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }) {
+                    Text(stringResource(R.string.send_csv))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmFinish = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+}
+
+private suspend fun uploadCsv(settings: ScannerSettings, records: List<ScanRecord>): UploadResult {
+    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    return FtpUploader().upload(
+        settings = settings.ftp,
+        fileName = "skenovani_$timestamp.csv",
+        content = CsvBuilder.build(records)
+    )
+}
+
+@Composable
+private fun RecordList(
+    records: List<ScanRecord>,
+    onRemove: (ScanRecord) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(modifier = modifier.fillMaxWidth()) {
+        items(records) { record ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = record.documentNumber.ifBlank {
+                                stringResource(R.string.unknown_document)
+                            },
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            text = record.amount?.let { formatAmount(it) }
+                                ?: stringResource(R.string.invalid_amount, record.amountText),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    TextButton(onClick = { onRemove(record) }) {
+                        Text(stringResource(R.string.remove))
+                    }
+                }
             }
         }
     }
@@ -150,7 +306,6 @@ private fun CameraPreview(onCode: (String) -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val executor = remember { Executors.newSingleThreadExecutor() }
     val scanner = remember { BarcodeScanning.getClient() }
-    var handled by remember { mutableStateOf(false) }
 
     AndroidView(
         modifier = Modifier.fillMaxSize(),
@@ -179,8 +334,7 @@ private fun CameraPreview(onCode: (String) -> Unit) {
                     scanner.process(image)
                         .addOnSuccessListener { barcodes ->
                             val value = barcodes.firstNotNullOfOrNull { it.rawValue }
-                            if (value != null && !handled) {
-                                handled = true
+                            if (value != null) {
                                 previewView.post { onCode(value) }
                             }
                         }
@@ -205,62 +359,8 @@ private fun CameraPreview(onCode: (String) -> Unit) {
     )
 }
 
-@Composable
-private fun ResultCard(
-    code: String,
-    onScanAgain: () -> Unit,
-    onCopy: () -> Unit,
-    onOpenLink: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = stringResource(R.string.result_title),
-            style = MaterialTheme.typography.titleMedium
-        )
-        Card(modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp)) {
-            Text(
-                text = code,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-        Button(
-            onClick = onScanAgain,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp)
-        ) {
-            Text(stringResource(R.string.scan_again))
-        }
-        OutlinedButton(
-            onClick = onCopy,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-        ) {
-            Text(stringResource(R.string.copy))
-        }
-        if (isLink(code)) {
-            TextButton(
-                onClick = onOpenLink,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp)
-            ) {
-                Text(stringResource(R.string.open_link))
-            }
-        }
-    }
-}
-
-private fun isLink(code: String): Boolean = Patterns.WEB_URL.matcher(code).matches()
+private fun formatAmount(amount: Double): String =
+    String.format(Locale.US, "%.2f", amount).replace('.', ',')
 
 private fun onCodeDetected(context: Context, code: String, settings: ScannerSettings) {
     if (settings.soundEnabled) {
@@ -269,7 +369,6 @@ private fun onCodeDetected(context: Context, code: String, settings: ScannerSett
     }
     if (settings.vibrationEnabled) vibrate(context)
     if (settings.autoCopy) copyToClipboard(context, code)
-    if (settings.autoOpenLinks && isLink(code)) openLink(context, code)
 }
 
 private fun vibrate(context: Context) {
@@ -291,12 +390,4 @@ private fun vibrate(context: Context) {
 private fun copyToClipboard(context: Context, code: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText("kod", code))
-    Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
-}
-
-private fun openLink(context: Context, code: String) {
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(code)).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    context.startActivity(intent)
 }
