@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telefonní seznam</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --panel: #ffffff;
+    --border: #d6dbe3;
+    --text: #1d2430;
+    --muted: #6b7686;
+    --accent: #1f6feb;
+    --accent-dark: #1757bb;
+    --ok: #1a7f46;
+    --warn: #9a6700;
+    --err: #b42318;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.45 "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  h1 { font-size: 20px; margin: 0; white-space: nowrap; }
+  .grow { flex: 1 1 260px; }
+  input[type="text"], input[type="search"], select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 15px;
+    background: #fff;
+    color: var(--text);
+  }
+  input:focus, select:focus { outline: 2px solid rgba(31,111,235,.35); border-color: var(--accent); }
+  button {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 6px;
+    font-size: 15px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:hover { background: #eef2f7; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: var(--accent-dark); }
+  button:disabled { opacity: .55; cursor: default; }
+  main { padding: 16px 20px 40px; }
+  #status {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--muted);
+  }
+  #status.ok { border-color: #b6e0c6; background: #edf9f1; color: var(--ok); }
+  #status.warn { border-color: #f0dca8; background: #fdf7e6; color: var(--warn); }
+  #status.err { border-color: #f3c0bb; background: #fdefee; color: var(--err); }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid #eef1f5; }
+  th { background: #f0f3f7; font-size: 13px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); cursor: pointer; user-select: none; white-space: nowrap; }
+  th .arrow { color: var(--accent); }
+  tbody tr:hover { background: #f7faff; }
+  td.tel { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.tel a { color: var(--accent); text-decoration: none; }
+  mark { background: #ffe9a8; padding: 0 1px; }
+  .count { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  dialog {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0;
+    width: min(620px, 94vw);
+    box-shadow: 0 18px 48px rgba(16,24,40,.24);
+  }
+  dialog::backdrop { background: rgba(16,24,40,.45); }
+  .dlg-head { padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 17px; }
+  .dlg-body { padding: 16px 18px; display: grid; gap: 14px; }
+  .dlg-foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; background: #fafbfd; }
+  .field label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 14px; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .file-box { padding: 10px 12px; border: 1px dashed var(--border); border-radius: 6px; background: #fafbfd; word-break: break-all; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .empty { padding: 40px 10px; text-align: center; color: var(--muted); }
+  @media print {
+    header, #settingsBtn, #refreshBtn, dialog { display: none !important; }
+    body { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Telefonní seznam</h1>
+  <div class="grow">
+    <input id="search" type="search" placeholder="Hledat podle jména nebo osobního čísla…" autocomplete="off" autofocus>
+  </div>
+  <span class="count" id="count"></span>
+  <button id="refreshBtn" class="primary">Aktualizovat</button>
+  <button id="settingsBtn">Nastavení</button>
+</header>
+
+<main>
+  <p id="status">Načítám…</p>
+  <table id="table">
+    <thead>
+      <tr>
+        <th data-sort="jmeno">Jméno</th>
+        <th data-sort="osCislo">Os. číslo</th>
+        <th data-sort="tel">Telefon</th>
+        <th data-sort="utvar">Útvar</th>
+        <th data-sort="firma">Firma</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div id="empty" class="empty" hidden></div>
+</main>
+
+<dialog id="settings">
+  <form method="dialog">
+    <div class="dlg-head">Nastavení</div>
+    <div class="dlg-body">
+      <div class="field">
+        <label>Vstupní CSV soubor</label>
+        <div class="file-box" id="fileInfo">Není vybrán žádný soubor.</div>
+        <div class="row" style="margin-top:8px">
+          <button type="button" id="pickBtn" class="primary">Vybrat soubor…</button>
+          <button type="button" id="clearBtn">Zrušit výběr</button>
+        </div>
+        <div class="hint">
+          Formát: <code>Firma;OsCislo;Jméno;TelČíslo;Utvar</code> (Firma 1 znak, OsCislo 4 číslice, Jméno 20 znaků, Útvar 4 znaky).
+          Aplikace si soubor zapamatuje a při každém startu ověří, zda není novější než poslední import.
+          Při dotazu prohlížeče na přístup k souboru zvolte <strong>„Povolit při každé návštěvě“</strong>, aby import probíhal automaticky.
+        </div>
+      </div>
+      <div class="field">
+        <label for="encoding">Kódování souboru</label>
+        <select id="encoding">
+          <option value="auto">Automaticky (UTF-8 / Windows-1250)</option>
+          <option value="utf-8">UTF-8</option>
+          <option value="windows-1250">Windows-1250</option>
+        </select>
+      </div>
+      <div class="field">
+        <label><input type="checkbox" id="hasHeader"> První řádek je hlavička</label>
+        <div class="hint">Hlavička se rozpozná i automaticky (řádek začínající „Firma;“).</div>
+      </div>
+      <div class="field">
+        <label>Poslední import</label>
+        <div class="file-box" id="lastInfo">—</div>
+      </div>
+    </div>
+    <div class="dlg-foot">
+      <button value="close">Zavřít</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+
+const DB_NAME = "telefonni-seznam";
+const STORE = "kv";
+const FSA = typeof window.showOpenFilePicker === "function";
+
+/* ---------- úložiště (IndexedDB) ---------- */
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function dbGet(key) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE, "readonly").objectStore(STORE).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function dbSet(key, value) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function dbDel(key) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/* ---------- stav ---------- */
+const state = {
+  records: [],
+  fileHandle: null,
+  fileName: "",
+  lastModified: 0,
+  importedAt: 0,
+  settings: { encoding: "auto", hasHeader: false },
+  sort: { key: "jmeno", dir: 1 }
+};
+
+const el = {
+  search: document.getElementById("search"),
+  tbody: document.getElementById("tbody"),
+  table: document.getElementById("table"),
+  empty: document.getElementById("empty"),
+  count: document.getElementById("count"),
+  status: document.getElementById("status"),
+  settings: document.getElementById("settings"),
+  fileInfo: document.getElementById("fileInfo"),
+  lastInfo: document.getElementById("lastInfo"),
+  encoding: document.getElementById("encoding"),
+  hasHeader: document.getElementById("hasHeader")
+};
+
+/* ---------- pomocné ---------- */
+const fmt = new Intl.DateTimeFormat("cs-CZ", { dateStyle: "short", timeStyle: "short" });
+const fmtDate = new Intl.DateTimeFormat("cs-CZ", { dateStyle: "long" });
+const collator = new Intl.Collator("cs", { sensitivity: "base", numeric: true });
+
+function setStatus(text, kind) {
+  el.status.textContent = text;
+  el.status.className = kind || "";
+}
+function stripDiacritics(s) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/* ---------- čtení a parsování CSV ---------- */
+function decode(buffer, mode) {
+  if (mode === "utf-8" || mode === "windows-1250") {
+    return new TextDecoder(mode).decode(buffer);
+  }
+  const utf8 = new TextDecoder("utf-8").decode(buffer);
+  if (utf8.includes("\uFFFD")) return new TextDecoder("windows-1250").decode(buffer);
+  return utf8;
+}
+
+function parseCsv(text, hasHeader) {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r\n|\r|\n/);
+  const records = [];
+  const errors = [];
+  lines.forEach((line, i) => {
+    if (!line.trim()) return;
+    if (i === 0 && (hasHeader || /^\s*"?firma"?\s*;/i.test(line))) return;
+    const cols = line.split(";").map(c => c.trim().replace(/^"(.*)"$/, "$1").trim());
+    if (cols.length < 5) {
+      errors.push(`řádek ${i + 1}: očekáváno 5 polí, nalezeno ${cols.length}`);
+      return;
+    }
+    const rec = {
+      firma: cols[0].slice(0, 1),
+      osCislo: cols[1].slice(0, 4),
+      jmeno: cols[2].slice(0, 20),
+      tel: cols[3],
+      utvar: cols[4].slice(0, 4)
+    };
+    if (!/^\d{1,4}$/.test(rec.osCislo)) errors.push(`řádek ${i + 1}: osobní číslo „${cols[1]}“ není 4místné číslo`);
+    rec.osCislo = rec.osCislo.padStart(4, "0");
+    rec.hay = stripDiacritics(rec.jmeno) + " " + rec.osCislo;
+    records.push(rec);
+  });
+  return { records, errors };
+}
+
+async function importFromFile(file) {
+  const buffer = await file.arrayBuffer();
+  const text = decode(buffer, state.settings.encoding);
+  const { records, errors } = parseCsv(text, state.settings.hasHeader);
+  state.records = records;
+  state.lastModified = file.lastModified;
+  state.importedAt = Date.now();
+  state.fileName = file.name;
+  await dbSet("data", {
+    records,
+    lastModified: state.lastModified,
+    importedAt: state.importedAt,
+    fileName: state.fileName
+  });
+  render();
+  updateSettingsInfo();
+  return errors;
+}
+
+function importMessage(count, errors) {
+  let msg = `Data naimportována: ${count} záznamů, soubor ze dne ${fmt.format(new Date(state.lastModified))}.`;
+  if (errors.length) {
+    msg += ` Přeskočeno/varování: ${errors.length} (${errors.slice(0, 3).join("; ")}${errors.length > 3 ? "; …" : ""}).`;
+  }
+  return msg;
+}
+
+/* ---------- práce se souborem ---------- */
+async function ensurePermission(handle, interactive) {
+  if (!handle.queryPermission) return true;
+  const opts = { mode: "read" };
+  if (await handle.queryPermission(opts) === "granted") return true;
+  if (!interactive) return false;
+  return await handle.requestPermission(opts) === "granted";
+}
+
+async function checkAndImport(interactive) {
+  if (!state.fileHandle) {
+    setStatus("Není nastaven vstupní CSV soubor. Otevřete Nastavení a vyberte soubor.", "warn");
+    if (interactive) el.settings.showModal();
+    return;
+  }
+  const allowed = await ensurePermission(state.fileHandle, interactive);
+  if (!allowed) {
+    setStatus("Přístup k souboru nebyl povolen. Klikněte na Aktualizovat a potvrďte přístup.", "warn");
+    return;
+  }
+  let file;
+  try {
+    file = await state.fileHandle.getFile();
+  } catch (e) {
+    setStatus("Vstupní soubor se nepodařilo otevřít (je dostupný síťový disk?). " + e.message, "err");
+    return;
+  }
+  if (file.lastModified > state.lastModified) {
+    const errors = await importFromFile(file);
+    setStatus(importMessage(state.records.length, errors), errors.length ? "warn" : "ok");
+  } else {
+    setStatus(`Data jsou aktuální ze dne ${fmtDate.format(new Date(state.lastModified))} (${fmt.format(new Date(state.lastModified))}), ${state.records.length} záznamů.`, "ok");
+  }
+}
+
+async function pickFile() {
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      multiple: false,
+      types: [{ description: "CSV soubor", accept: { "text/csv": [".csv", ".txt"] } }]
+    });
+    state.fileHandle = handle;
+    await dbSet("fileHandle", handle);
+    state.lastModified = 0;
+    const file = await handle.getFile();
+    state.fileName = file.name;
+    const errors = await importFromFile(file);
+    setStatus(importMessage(state.records.length, errors), errors.length ? "warn" : "ok");
+  } catch (e) {
+    if (e && e.name === "AbortError") return;
+    setStatus("Soubor se nepodařilo načíst: " + e.message, "err");
+  }
+}
+
+/* ---------- vykreslení ---------- */
+function highlight(text, needle) {
+  if (!needle) return document.createTextNode(text);
+  const hay = stripDiacritics(text);
+  const frag = document.createDocumentFragment();
+  let from = 0;
+  let idx = hay.indexOf(needle, from);
+  while (idx !== -1) {
+    frag.appendChild(document.createTextNode(text.slice(from, idx)));
+    const m = document.createElement("mark");
+    m.textContent = text.slice(idx, idx + needle.length);
+    frag.appendChild(m);
+    from = idx + needle.length;
+    idx = hay.indexOf(needle, from);
+  }
+  frag.appendChild(document.createTextNode(text.slice(from)));
+  return frag;
+}
+
+function render() {
+  const raw = el.search.value.trim();
+  const needle = stripDiacritics(raw);
+  const rows = state.records.filter(r => !needle || r.hay.includes(needle));
+  const { key, dir } = state.sort;
+  rows.sort((a, b) => collator.compare(a[key], b[key]) * dir);
+
+  el.tbody.replaceChildren();
+  const frag = document.createDocumentFragment();
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    const tdName = document.createElement("td");
+    tdName.appendChild(highlight(r.jmeno, needle));
+    const tdNum = document.createElement("td");
+    tdNum.className = "tel";
+    tdNum.appendChild(highlight(r.osCislo, needle));
+    const tdTel = document.createElement("td");
+    tdTel.className = "tel";
+    if (r.tel) {
+      const a = document.createElement("a");
+      a.href = "tel:" + r.tel.replace(/\s+/g, "");
+      a.textContent = r.tel;
+      tdTel.appendChild(a);
+    }
+    const tdUtvar = document.createElement("td");
+    tdUtvar.textContent = r.utvar;
+    const tdFirma = document.createElement("td");
+    tdFirma.textContent = r.firma;
+    tr.append(tdName, tdNum, tdTel, tdUtvar, tdFirma);
+    frag.appendChild(tr);
+  }
+  el.tbody.appendChild(frag);
+
+  el.count.textContent = state.records.length
+    ? `${rows.length} z ${state.records.length} záznamů`
+    : "";
+  const noData = state.records.length === 0;
+  el.table.hidden = noData || rows.length === 0;
+  el.empty.hidden = !(noData || rows.length === 0);
+  el.empty.textContent = noData
+    ? "Žádná data. Vyberte v Nastavení vstupní CSV soubor."
+    : "Hledání nenašlo žádný záznam.";
+
+  document.querySelectorAll("th[data-sort]").forEach(th => {
+    const base = th.textContent.replace(/\s*[▲▼]$/, "");
+    th.textContent = base + (th.dataset.sort === key ? (dir === 1 ? " ▲" : " ▼") : "");
+  });
+}
+
+function updateSettingsInfo() {
+  el.fileInfo.textContent = state.fileHandle
+    ? state.fileName || state.fileHandle.name
+    : "Není vybrán žádný soubor.";
+  el.lastInfo.textContent = state.importedAt
+    ? `${fmt.format(new Date(state.importedAt))} — ${state.records.length} záznamů, soubor ze dne ${fmt.format(new Date(state.lastModified))}`
+    : "—";
+}
+
+/* ---------- události ---------- */
+let searchTimer = 0;
+el.search.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(render, 80);
+});
+document.getElementById("refreshBtn").addEventListener("click", () => checkAndImport(true));
+document.getElementById("settingsBtn").addEventListener("click", () => {
+  updateSettingsInfo();
+  el.settings.showModal();
+});
+document.getElementById("pickBtn").addEventListener("click", pickFile);
+document.getElementById("clearBtn").addEventListener("click", async () => {
+  state.fileHandle = null;
+  state.fileName = "";
+  state.records = [];
+  state.lastModified = 0;
+  state.importedAt = 0;
+  await dbDel("fileHandle");
+  await dbDel("data");
+  updateSettingsInfo();
+  render();
+  setStatus("Výběr souboru byl zrušen a data smazána.", "warn");
+});
+el.encoding.addEventListener("change", async () => {
+  state.settings.encoding = el.encoding.value;
+  await dbSet("settings", state.settings);
+  state.lastModified = 0;
+  await checkAndImport(true);
+});
+el.hasHeader.addEventListener("change", async () => {
+  state.settings.hasHeader = el.hasHeader.checked;
+  await dbSet("settings", state.settings);
+  state.lastModified = 0;
+  await checkAndImport(true);
+});
+document.querySelectorAll("th[data-sort]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.sort;
+    state.sort = { key, dir: state.sort.key === key ? -state.sort.dir : 1 };
+    render();
+  });
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !el.settings.open) {
+    el.search.value = "";
+    render();
+  }
+});
+
+/* ---------- start ---------- */
+(async function init() {
+  if (!FSA) {
+    setStatus("Tento prohlížeč neumí zapamatovat si cestu k souboru. Použijte Google Chrome nebo Microsoft Edge.", "err");
+    return;
+  }
+  const settings = await dbGet("settings");
+  if (settings) Object.assign(state.settings, settings);
+  el.encoding.value = state.settings.encoding;
+  el.hasHeader.checked = state.settings.hasHeader;
+
+  const data = await dbGet("data");
+  if (data) {
+    state.records = data.records || [];
+    state.lastModified = data.lastModified || 0;
+    state.importedAt = data.importedAt || 0;
+    state.fileName = data.fileName || "";
+  }
+  state.fileHandle = (await dbGet("fileHandle")) || null;
+  render();
+  updateSettingsInfo();
+  await checkAndImport(false);
+})();
+</script>
+</body>
+</html>
