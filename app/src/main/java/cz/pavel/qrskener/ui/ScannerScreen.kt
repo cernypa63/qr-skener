@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -52,8 +53,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -72,6 +71,7 @@ import cz.pavel.qrskener.data.UploadResult
 import cz.pavel.qrskener.scan.CodeParser
 import cz.pavel.qrskener.scan.CsvBuilder
 import cz.pavel.qrskener.scan.ScanRecord
+import cz.pavel.qrskener.scan.ScanSessionViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -82,13 +82,17 @@ private const val DUPLICATE_WINDOW_MILLIS = 2000L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScannerScreen(onBack: () -> Unit) {
+fun ScannerScreen(
+    session: ScanSessionViewModel,
+    onOpenSettings: () -> Unit,
+    onBack: () -> Unit
+) {
     val context = LocalContext.current
     val repository = remember { SettingsRepository(context) }
     val settings by repository.settings.collectAsState(initial = ScannerSettings())
     val scope = rememberCoroutineScope()
 
-    val records: SnapshotStateList<ScanRecord> = remember { emptyList<ScanRecord>().toMutableStateList() }
+    val records = session.records
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -127,6 +131,14 @@ fun ScannerScreen(onBack: () -> Unit) {
                             contentDescription = stringResource(R.string.back)
                         )
                     }
+                },
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(
+                            Icons.Filled.Settings,
+                            contentDescription = stringResource(R.string.settings)
+                        )
+                    }
                 }
             )
         },
@@ -155,12 +167,9 @@ fun ScannerScreen(onBack: () -> Unit) {
             Box(modifier = Modifier.weight(1f)) {
                 if (hasPermission) {
                     CameraPreview { code ->
-                        val last = records.lastOrNull()
                         val now = System.currentTimeMillis()
-                        val duplicate = last != null && last.rawCode == code &&
-                            now - last.timestampMillis < DUPLICATE_WINDOW_MILLIS
-                        if (!duplicate) {
-                            records.add(CodeParser.parse(code, settings, now))
+                        if (!session.isDuplicate(code, now, DUPLICATE_WINDOW_MILLIS)) {
+                            session.add(CodeParser.parse(code, settings, now))
                             onCodeDetected(context, code, settings)
                         }
                     }
@@ -175,7 +184,7 @@ fun ScannerScreen(onBack: () -> Unit) {
 
             RecordList(
                 records = records,
-                onRemove = { record -> records.remove(record) },
+                onRemove = { record -> session.remove(record) },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -208,7 +217,7 @@ fun ScannerScreen(onBack: () -> Unit) {
                                     context.getString(R.string.upload_success, result.remotePath),
                                     Toast.LENGTH_LONG
                                 ).show()
-                                records.clear()
+                                session.clear()
                                 onBack()
                             }
 
