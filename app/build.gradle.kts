@@ -51,6 +51,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
@@ -60,4 +61,7 @@ dependencies {
     implementation("androidx.camera:camera-view:1.3.3")
 
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
+    implementation("commons-net:commons-net:3.10.0")
+
+    testImplementation("junit:junit:4.13.2")
 }

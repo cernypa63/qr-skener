@@ -14,9 +14,11 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import android.os.Build
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import cz.pavel.qrskener.scan.ScanSessionViewModel
 import cz.pavel.qrskener.ui.HomeScreen
 import cz.pavel.qrskener.ui.ScannerScreen
 import cz.pavel.qrskener.ui.SettingsScreen
@@ -51,6 +53,9 @@ private fun QrSkenerTheme(content: @Composable () -> Unit) {
 @Composable
 private fun QrSkenerApp() {
     val navController = rememberNavController()
+    val session: ScanSessionViewModel = viewModel(
+        viewModelStoreOwner = LocalContext.current as ComponentActivity
+    )
     NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
             HomeScreen(
@@ -59,7 +64,11 @@ private fun QrSkenerApp() {
             )
         }
         composable(Routes.SCANNER) {
-            ScannerScreen(onBack = { navController.popBackStack() })
+            ScannerScreen(
+                session = session,
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(onBack = { navController.popBackStack() })

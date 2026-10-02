@@ -4,17 +4,38 @@
     <string name="home_subtitle">Skenování QR a čárových kódů</string>
     <string name="start_scanning">Začít skenovat</string>
     <string name="settings">Nastavení</string>
-    <string name="scanner_title">Skenování</string>
     <string name="camera_permission_rationale">Pro skenování kódů je potřeba přístup ke kameře.</string>
     <string name="grant_permission">Povolit kameru</string>
-    <string name="result_title">Načtený kód</string>
-    <string name="copy">Kopírovat</string>
-    <string name="open_link">Otevřít odkaz</string>
-    <string name="scan_again">Skenovat znovu</string>
-    <string name="copied">Zkopírováno do schránky</string>
     <string name="back">Zpět</string>
+    <string name="cancel">Zrušit</string>
+    <string name="remove">Odebrat</string>
+
+    <string name="total_amount">Součet: %1$s</string>
+    <string name="scanned_count">Načteno dokladů: %1$d</string>
+    <string name="finish_action">Ukončit akci</string>
+    <string name="finish_summary">Odeslat %1$d dokladů v celkové částce %2$s na FTP?</string>
+    <string name="send_csv">Odeslat CSV</string>
+    <string name="upload_success">CSV odesláno: %1$s</string>
+    <string name="upload_failed">Odeslání selhalo: %1$s</string>
+    <string name="unknown_document">(bez čísla dokladu)</string>
+    <string name="invalid_amount">Nečitelná částka: %1$s</string>
+
     <string name="setting_sound">Zvuk při načtení</string>
     <string name="setting_vibration">Vibrace při načtení</string>
-    <string name="setting_copy">Automaticky kopírovat do schránky</string>
-    <string name="setting_open_links">Automaticky otevírat odkazy</string>
+    <string name="setting_copy">Kopírovat kód do schránky</string>
+
+    <string name="section_parsing">Rozpoznání údajů z kódu</string>
+    <string name="parsing_hint">Pozice se počítají od 1. znaku textu v QR kódu.</string>
+    <string name="setting_document_position">Číslo dokladu</string>
+    <string name="setting_amount_position">Částka</string>
+    <string name="position_start">Od znaku</string>
+    <string name="position_length">Délka</string>
+
+    <string name="section_ftp">FTP server</string>
+    <string name="ftp_host">Adresa serveru</string>
+    <string name="ftp_port">Port</string>
+    <string name="ftp_user">Uživatel</string>
+    <string name="ftp_password">Heslo</string>
+    <string name="ftp_directory">Cílová složka</string>
+    <string name="ftp_use_ftps">Použít FTPS (šifrovaně)</string>
 </resources>
