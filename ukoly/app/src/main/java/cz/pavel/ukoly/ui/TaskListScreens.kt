@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -137,7 +139,8 @@ private fun TaskListScaffold(
 ) {
     val allTasks by viewModel.tasks.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
-    val tasks = allTasks.filter { it.status == status }.sortedBy { it.id }
+    val compact by viewModel.compactList.collectAsStateWithLifecycle()
+    val tasks = allTasks.filter { it.status == status }.sortedByDescending { it.id }
     var selected by remember { mutableStateOf<SelectedTask?>(null) }
     var toDelete by remember { mutableStateOf<Task?>(null) }
 
@@ -147,6 +150,12 @@ private fun TaskListScaffold(
                 title = title,
                 navigationIcon = navigationIcon,
                 actions = {
+                    IconButton(onClick = { viewModel.setCompactList(!compact) }) {
+                        Icon(
+                            if (compact) Icons.Filled.ViewAgenda else Icons.AutoMirrored.Filled.ViewList,
+                            contentDescription = if (compact) "Zobrazit celé úkoly" else "Zobrazit jako seznam"
+                        )
+                    }
                     IconButton(onClick = { viewModel.refresh() }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Aktualizovat z FTP")
                     }
@@ -161,6 +170,7 @@ private fun TaskListScaffold(
             TaskList(
                 tasks = tasks,
                 emptyText = emptyText,
+                compact = compact,
                 onClick = { task ->
                     viewModel.check(task.id) { result ->
                         selected = result.toSelection {

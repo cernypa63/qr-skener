@@ -33,6 +33,13 @@ class TasksViewModel(application: Application) : AndroidViewModel(application) {
     val settings: StateFlow<AppSettings?> = settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    val compactList: StateFlow<Boolean> = settingsRepository.compactList
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setCompactList(value: Boolean) {
+        viewModelScope.launch { settingsRepository.setCompactList(value) }
+    }
+
     private val busyCount = MutableStateFlow(0)
     val busy: StateFlow<Int> = busyCount.asStateFlow()
 

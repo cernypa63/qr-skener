@@ -43,6 +43,12 @@ class SettingsRepository(private val context: Context) {
         )
     }
 
+    val compactList: Flow<Boolean> = context.dataStore.data.map { prefs -> prefs[COMPACT] ?: false }
+
+    suspend fun setCompactList(value: Boolean) {
+        context.dataStore.edit { prefs -> prefs[COMPACT] = value }
+    }
+
     suspend fun save(settings: AppSettings) {
         context.dataStore.edit { prefs ->
             prefs[HOST] = settings.host.trim()
@@ -63,5 +69,6 @@ class SettingsRepository(private val context: Context) {
         val PATH = stringPreferencesKey("ftp_path")
         val FTPS = booleanPreferencesKey("ftp_ftps")
         val REFRESH = intPreferencesKey("refresh_minutes")
+        val COMPACT = booleanPreferencesKey("compact_list")
     }
 }

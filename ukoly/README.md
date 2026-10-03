@@ -4,7 +4,7 @@ Android aplikace pro správu úkolů (Kotlin, Jetpack Compose). Data se ukládaj
 
 ## Obrazovky
 
-- **Otevřené úkoly** (úvodní) – seznam `Datum založení : Text`, nahoře tlačítka *Nový*, *Vyřešeno*, *Nastavení* a ikona pro ruční aktualizaci z FTP.
+- **Otevřené úkoly** (úvodní) – seznam `Datum založení : Text`, nahoře tlačítka *Nový*, *Vyřešeno*, *Nastavení* a ikony pro přepnutí zobrazení *seznam* (jeden řádek na úkol, menší písmo) a ruční aktualizaci z FTP. Úkoly jsou řazené od nejnovějšího.
   Klepnutí na úkol nejdřív ověří stav na FTP (pokud ho změnila jiná aplikace, načte se aktuální verze) a nabídne *Editovat*, *Přesunout do vyřešených*, *Smazat*.
 - **Vyřešené úkoly** – klepnutí nabídne *Vrátit do otevřených*, *Smazat*.
 - **Nový / Upravit úkol** – text úkolu, *Uložit*.

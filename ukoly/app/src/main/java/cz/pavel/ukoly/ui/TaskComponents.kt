@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cz.pavel.ukoly.data.CheckResult
 import cz.pavel.ukoly.data.Task
@@ -40,6 +41,7 @@ fun BusyIndicator(busy: Boolean) {
 fun TaskList(
     tasks: List<Task>,
     emptyText: String,
+    compact: Boolean,
     onClick: (Task) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -53,11 +55,13 @@ fun TaskList(
         items(tasks, key = { it.id }) { task ->
             Text(
                 text = "${TaskTime.displayDate(task)} : ${task.text}",
-                style = MaterialTheme.typography.bodyLarge,
+                style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
+                maxLines = if (compact) 1 else Int.MAX_VALUE,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onClick(task) }
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .padding(horizontal = 16.dp, vertical = if (compact) 8.dp else 14.dp)
             )
             HorizontalDivider()
         }
