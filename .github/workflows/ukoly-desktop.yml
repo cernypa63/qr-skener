@@ -1,0 +1,33 @@
+name: Úkoly pro Windows
+
+on:
+  push:
+    paths:
+      - "ukoly-desktop/**"
+      - ".github/workflows/ukoly-desktop.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ukoly-desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Test a sestavení instalátorů
+        run: ./gradlew --no-daemon test packageMsi packageExe createDistributable
+      - name: Přenosná verze (ZIP)
+        shell: pwsh
+        run: Compress-Archive -Path build/compose/binaries/main/app/Ukoly -DestinationPath build/Ukoly-portable.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ukoly-windows
+          path: |
+            ukoly-desktop/build/compose/binaries/main/msi/*.msi
+            ukoly-desktop/build/compose/binaries/main/exe/*.exe
+            ukoly-desktop/build/Ukoly-portable.zip
