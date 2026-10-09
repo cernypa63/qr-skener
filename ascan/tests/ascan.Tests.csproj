@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="../src/Cli.cs" Link="Cli.cs" />
     <Compile Include="../src/Config.cs" Link="Config.cs" />
+    <Compile Include="../src/Pdf.cs" Link="Pdf.cs" />
   </ItemGroup>
 
   <ItemGroup>

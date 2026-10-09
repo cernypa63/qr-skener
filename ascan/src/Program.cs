@@ -1,26 +1,39 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace Ascan
 {
     static class Program
     {
+        static readonly List<string> Errors = new List<string>();
+
         [STAThread]
         static int Main(string[] args)
         {
             var options = Cli.Parse(args);
+            string resultPath = options.OutputPath != null ? Cli.ResultPathFor(options.OutputPath) : null;
+            string scannedPath = null;
+            int code = Run(options, ref scannedPath);
+            if (resultPath != null) WriteResult(resultPath, code == ExitCodes.Ok ? scannedPath : string.Join("\r\n", Errors));
+            return code;
+        }
+
+        static int Run(Options options, ref string scannedPath)
+        {
             if (options.Error != null)
             {
-                Console.Error.WriteLine("Chyba: " + options.Error);
+                Error("Chyba: " + options.Error);
                 Console.Error.WriteLine("Nápověda: ascan -h");
                 return ExitCodes.Usage;
             }
 
-            var config = new Config(Config.DefaultPath());
             try
             {
+                var config = new Config(Config.DefaultPath());
                 switch (options.Command)
                 {
                     case Command.Help:
@@ -29,25 +42,44 @@ namespace Ascan
                     case Command.List:
                         return List(config);
                     case Command.Scan:
-                        return Scan(config, options);
+                        return Scan(config, options, ref scannedPath);
                     default:
                         return Select(config);
                 }
             }
             catch (WiaUnavailableException e)
             {
-                Console.Error.WriteLine("Chyba: " + e.Message);
+                Error("Chyba: " + e.Message);
                 return ExitCodes.NoScanner;
             }
             catch (COMException e)
             {
-                Console.Error.WriteLine("Chyba skeneru: " + Cli.DescribeWiaError(e.HResult) + ".");
+                Error("Chyba skeneru: " + Cli.DescribeWiaError(e.HResult) + ".");
                 return ExitCodes.ScanFailed;
             }
-            catch (Exception e) when (e is UnauthorizedAccessException || e is System.IO.IOException)
+            catch (Exception e)
             {
-                Console.Error.WriteLine("Chyba: " + e.Message);
+                Error("Chyba: " + e.Message);
                 return ExitCodes.ScanFailed;
+            }
+        }
+
+        static void Error(string message)
+        {
+            Errors.Add(message);
+            Console.Error.WriteLine(message);
+        }
+
+        static void WriteResult(string path, string content)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, (content ?? "") + "\r\n", new UTF8Encoding(false));
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine("Chyba: nelze zapsat " + path + ": " + e.Message);
             }
         }
 
@@ -91,12 +123,12 @@ namespace Ascan
             }
         }
 
-        static int Scan(Config config, Options options)
+        static int Scan(Config config, Options options, ref string scannedPath)
         {
             string path = Cli.ResolveOutputPath(options.OutputPath, out string formatId);
             if (path == null)
             {
-                Console.Error.WriteLine("Chyba: nepodporovaný formát souboru (použijte .jpg, .png, .bmp, .tif nebo .gif).");
+                Error("Chyba: nepodporovaný formát souboru (použijte .pdf, .jpg, .png, .bmp, .tif nebo .gif).");
                 return ExitCodes.Usage;
             }
 
@@ -114,8 +146,8 @@ namespace Ascan
                 int index = Cli.IndexOf(scanners.Select(s => s.Id).ToList(), config.DeviceId);
                 if (index < 0)
                 {
-                    Console.Error.WriteLine("Chyba: nastavený skener \"" + (config.DeviceName ?? config.DeviceId) + "\" není dostupný.");
-                    Console.Error.WriteLine("Jiný skener vyberete příkazem: ascan");
+                    Error("Chyba: nastavený skener \"" + (config.DeviceName ?? config.DeviceId) + "\" není dostupný.");
+                    Error("Jiný skener vyberete příkazem: ascan");
                     return ExitCodes.NoScanner;
                 }
                 scanner = scanners[index];
@@ -123,6 +155,7 @@ namespace Ascan
 
             Console.WriteLine("Skenuji: " + scanner.Name + " (" + options.Dpi + " DPI, " + Cli.Describe(options.Color) + ")...");
             Wia.Scan(scanner.Id, path, formatId, options.Dpi, options.Color, w => Console.Error.WriteLine("Upozornění: " + w));
+            scannedPath = path;
             Console.WriteLine("Uloženo: " + path);
             return ExitCodes.Ok;
         }
@@ -155,7 +188,7 @@ namespace Ascan
 
         static int NoScanners()
         {
-            Console.Error.WriteLine("Nebyl nalezen žádný skener. Zkontrolujte, že je skener zapnutý, připojený a má nainstalovaný ovladač (WIA).");
+            Error("Nebyl nalezen žádný skener. Zkontrolujte, že je skener zapnutý, připojený a má nainstalovaný ovladač (WIA).");
             return ExitCodes.NoScanner;
         }
     }

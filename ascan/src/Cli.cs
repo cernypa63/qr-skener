@@ -42,6 +42,7 @@ namespace Ascan
         public const string Gif = "{B96B3CB0-0728-11D3-9D7B-0000F81EF32E}";
         public const string Jpeg = "{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}";
         public const string Tiff = "{B96B3CB1-0728-11D3-9D7B-0000F81EF32E}";
+        public const string Pdf = "PDF";
 
         static readonly Dictionary<string, string> ByExtension = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -52,6 +53,7 @@ namespace Ascan
             [".jpeg"] = Jpeg,
             [".tif"] = Tiff,
             [".tiff"] = Tiff,
+            [".pdf"] = Pdf,
         };
 
         public static string ForPath(string path) =>
@@ -65,7 +67,9 @@ namespace Ascan
 
 Použití:
   ascan                  výběr skeneru ze seznamu (uloží se jako nastavený)
-  ascan <soubor>         naskenuje stránku nastaveným skenerem do souboru
+  ascan <soubor>         naskenuje bez dalších dotazů stránku ze skeneru do souboru;
+                         do stejné složky zapíše result.txt (cesta k souboru
+                         nebo chybové hlášky)
   ascan -l               vypíše dostupné skenery
   ascan -h               tato nápověda
 
@@ -73,7 +77,7 @@ Volby skenování:
   -d, --dpi <N>          rozlišení v DPI (výchozí 300)
   -c, --barva <režim>    barva | seda | cb   (výchozí barva)
 
-Formát se určí podle přípony: .jpg .png .bmp .tif .gif
+Formát se určí podle přípony: .pdf .jpg .png .bmp .tif .gif
 (bez přípony se použije .jpg).
 
 Pokud není nastaven žádný skener, použije se výchozí skener Windows
@@ -81,7 +85,7 @@ Pokud není nastaven žádný skener, použije se výchozí skener Windows
 
 Příklady:
   ascan
-  ascan doklad.jpg
+  ascan doklad.pdf
   ascan C:\Skeny\smlouva.png -d 200 -c seda";
 
         public static Options Parse(string[] args)
@@ -149,6 +153,22 @@ Příklady:
 
         public static string Describe(ColorMode m) =>
             m == ColorMode.Gray ? "odstíny šedi" : m == ColorMode.BlackWhite ? "černobíle" : "barevně";
+
+        public const string ResultFileName = "result.txt";
+
+        /// <summary>result.txt next to the output file, or null when the path is unusable.</summary>
+        public static string ResultPathFor(string outputPath)
+        {
+            try
+            {
+                string dir = Path.GetDirectoryName(Path.GetFullPath(outputPath));
+                return string.IsNullOrEmpty(dir) ? null : Path.Combine(dir, ResultFileName);
+            }
+            catch (Exception e) when (e is ArgumentException || e is NotSupportedException || e is PathTooLongException)
+            {
+                return null;
+            }
+        }
 
         /// <summary>Returns the full output path with an extension, or null when the extension is unsupported.</summary>
         public static string ResolveOutputPath(string path, out string formatId)

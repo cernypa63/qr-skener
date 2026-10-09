@@ -8,7 +8,7 @@ který je součástí Windows 10 a 11.
 
 ```
 ascan                  výběr skeneru ze seznamu (uloží se jako nastavený)
-ascan <soubor>         naskenuje stránku nastaveným skenerem do souboru
+ascan <soubor>         naskenuje bez dalších dotazů do souboru + zapíše result.txt
 ascan -l               vypíše dostupné skenery
 ascan -h               nápověda
 
@@ -31,7 +31,15 @@ Vyberte číslo skeneru [Enter = 1, W = výběr ve Windows, Q = konec]:
 - `W` otevře standardní dialog Windows pro výběr skeneru.
 - Volba se ukládá do `%APPDATA%\ascan\ascan.cfg`.
 
-Formát výstupu podle přípony: `.jpg .png .bmp .tif .gif` (bez přípony `.jpg`).
+## Skenování do souboru
+
+`ascan C:\Skeny\doklad.pdf` naskenuje bez dalších dotazů to, co je ve skeneru, nastaveným
+(nebo výchozím) skenerem.
+
+- Formát podle přípony: `.pdf .jpg .png .bmp .tif .gif` (bez přípony `.jpg`).
+- PDF: ze skla jedna stránka; je-li papír v automatickém podavači (ADF), naskenují se všechny listy do jednoho PDF.
+- Do stejné složky se zapíše `result.txt` (UTF-8): při úspěchu plná cesta k naskenovanému souboru,
+  při chybě chybové hlášky (každá na řádku).
 
 Návratové kódy: `0` OK, `1` chybné parametry, `2` skener nenalezen / nedostupný, `3` chyba skenování.
 

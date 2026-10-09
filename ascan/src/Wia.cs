@@ -70,19 +70,72 @@ namespace Ascan
             foreach (dynamic i in device.Items) { item = i; break; }
             if (item == null) throw new COMException("Skener nemá žádnou položku ke skenování", unchecked((int)0x80210001));
 
+            bool pdf = formatId == ImageFormats.Pdf;
+            bool feeder = pdf && UseFeederIfLoaded(device);
+
             if (!TrySetProperty(item.Properties, PropIntent, (int)color))
                 warn("skener nepodporuje režim \"" + Cli.Describe(color) + "\", použije se jeho výchozí nastavení.");
             if (!TrySetProperty(item.Properties, PropXResolution, dpi) | !TrySetProperty(item.Properties, PropYResolution, dpi))
                 warn("skener nepodporuje rozlišení " + dpi + " DPI, použije se jeho výchozí nastavení.");
 
-            dynamic image = item.Transfer(ImageFormats.Bmp);
-            if (!string.Equals((string)image.FormatID, formatId, StringComparison.OrdinalIgnoreCase))
-                image = Convert(image, formatId);
-
-            if (File.Exists(outputPath)) File.Delete(outputPath);
             string dir = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-            image.SaveFile(outputPath);
+            if (File.Exists(outputPath)) File.Delete(outputPath);
+
+            if (!pdf)
+            {
+                dynamic image = ToFormat(item.Transfer(ImageFormats.Bmp), formatId);
+                image.SaveFile(outputPath);
+                return;
+            }
+
+            var pages = new List<byte[]>();
+            double resX = 0, resY = 0;
+            while (true)
+            {
+                dynamic image;
+                try
+                {
+                    image = ToFormat(item.Transfer(ImageFormats.Bmp), ImageFormats.Jpeg);
+                }
+                catch (COMException) when (pages.Count > 0)
+                {
+                    break; // feeder empty
+                }
+                if (pages.Count == 0)
+                {
+                    resX = System.Convert.ToDouble(image.HorizontalResolution);
+                    resY = System.Convert.ToDouble(image.VerticalResolution);
+                }
+                pages.Add((byte[])image.FileData.BinaryData);
+                if (!feeder) break;
+            }
+            File.WriteAllBytes(outputPath, Pdf.FromJpegPages(pages, resX > 0 ? resX : dpi, resY > 0 ? resY : dpi));
+        }
+
+        /// <summary>Switches the device to its document feeder when paper is loaded there.</summary>
+        static bool UseFeederIfLoaded(dynamic device)
+        {
+            const int PropHandlingCapabilities = 3086, PropHandlingStatus = 3087, PropHandlingSelect = 3088;
+            const int Feeder = 1, FeedReady = 1;
+            try
+            {
+                int capabilities = PropertyInt(device.Properties, PropHandlingCapabilities);
+                int status = PropertyInt(device.Properties, PropHandlingStatus);
+                if ((capabilities & Feeder) == 0 || (status & FeedReady) == 0) return false;
+                return TrySetProperty(device.Properties, PropHandlingSelect, Feeder);
+            }
+            catch (COMException) { return false; }
+        }
+
+        static dynamic ToFormat(dynamic image, string formatId) =>
+            string.Equals((string)image.FormatID, formatId, StringComparison.OrdinalIgnoreCase) ? image : Convert(image, formatId);
+
+        static int PropertyInt(dynamic properties, int id)
+        {
+            foreach (dynamic p in properties)
+                if ((int)p.PropertyID == id) return System.Convert.ToInt32(p.Value);
+            return 0;
         }
 
         static dynamic Convert(dynamic image, string formatId)

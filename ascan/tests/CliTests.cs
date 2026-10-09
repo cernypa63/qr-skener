@@ -72,7 +72,21 @@ namespace Ascan.Tests
         }
 
         [Fact]
-        public void UnsupportedExtension() => Assert.Null(Cli.ResolveOutputPath("a.pdf", out _));
+        public void PdfByExtension()
+        {
+            Cli.ResolveOutputPath("sken.PDF", out string format);
+            Assert.Equal(ImageFormats.Pdf, format);
+        }
+
+        [Fact]
+        public void UnsupportedExtension() => Assert.Null(Cli.ResolveOutputPath("a.docx", out _));
+
+        [Fact]
+        public void ResultFileNextToOutput()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "skeny");
+            Assert.Equal(Path.Combine(dir, "result.txt"), Cli.ResultPathFor(Path.Combine(dir, "a.pdf")));
+        }
 
         [Fact]
         public void ChoiceEnterUsesDefault()
