@@ -1,0 +1,42 @@
+name: ascan pro Windows
+
+on:
+  push:
+    paths:
+      - "ascan/**"
+      - ".github/workflows/ascan.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ascan
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Testy
+        run: dotnet test tests
+      - name: Sestavení
+        run: dotnet build src -c Release -o out
+      - name: Kontrola spuštění
+        shell: pwsh
+        run: |
+          ./out/ascan.exe -h
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          ./out/ascan.exe -l
+          if ($LASTEXITCODE -notin 0, 2) { exit 1 }
+          ./out/ascan.exe -x
+          if ($LASTEXITCODE -ne 1) { exit 1 }
+          ./out/ascan.exe "$env:RUNNER_TEMP\skeny\test.pdf"
+          if ($LASTEXITCODE -notin 0, 2) { exit 1 }
+          Get-Content "$env:RUNNER_TEMP\skeny\result.txt"
+          if (-not (Test-Path "$env:RUNNER_TEMP\skeny\result.txt")) { exit 1 }
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ascan-windows
+          path: ascan/out/ascan.exe
