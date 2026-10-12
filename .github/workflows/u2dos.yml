@@ -1,0 +1,43 @@
+name: u2dos pro Windows
+
+on:
+  push:
+    paths:
+      - "u2dos/**"
+      - ".github/workflows/u2dos.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: u2dos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Testy
+        run: dotnet test tests
+      - name: Sestavení
+        run: dotnet build src -c Release -o out
+      - name: Kontrola spuštění
+        shell: powershell
+        run: |
+          $t = $env:RUNNER_TEMP
+          $s = "P" + [char]0x159 + [char]0xED + "li" + [char]0x161 + " " + [char]0x17E + "lu" + [char]0x165 + "ou" + [char]0x10D + "k" + [char]0xFD + " k" + [char]0x16F + [char]0x148 + "`n" + [char]0xDA + "p" + [char]0x11B + "l `n"
+          [IO.File]::WriteAllBytes("$t\in.txt", (New-Object Text.UTF8Encoding $false).GetBytes($s))
+          ./out/u2dos.exe "$t\in.txt" "$t\out.txt"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $expected = [Text.Encoding]::GetEncoding(852).GetBytes($s.Replace("`n", "`r`n"))
+          $actual = [IO.File]::ReadAllBytes("$t\out.txt")
+          if ([Convert]::ToBase64String($actual) -ne [Convert]::ToBase64String($expected)) { Write-Host "Neshoda"; exit 1 }
+          Write-Host ("OK: " + ($actual | ForEach-Object { $_.ToString("X2") }) -join " ")
+          ./out/u2dos.exe "$t\nic.txt" "$t\x.txt"
+          if ($LASTEXITCODE -ne 2) { exit 1 }
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: u2dos-windows
+          path: u2dos/out/u2dos.exe
