@@ -147,6 +147,7 @@ fun NastaveniScreen(vm: EetViewModel) {
             }
             OutlinedButton(onClick = { vm.vyzkousetFtp(ftp()) { hlaska = it } }) { Text("Vyzkoušet připojení k FTP") }
             Button(onClick = { ulozit() }, modifier = Modifier.fillMaxWidth()) { Text("Uložit nastavení") }
+            OutlinedButton(onClick = { vm.zmenitHeslo() }, modifier = Modifier.fillMaxWidth()) { Text("Změnit heslo k nastavení") }
         }
     }
 

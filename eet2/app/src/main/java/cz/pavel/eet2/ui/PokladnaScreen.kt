@@ -1,5 +1,10 @@
 package cz.pavel.eet2.ui
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +18,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -51,14 +57,21 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun PokladnaScreen(vm: EetViewModel) {
     val n = vm.nastaveni
+    val activity = LocalContext.current as? Activity
+    var potvrditKonec by remember { mutableStateOf(false) }
+    val konec = {
+        if (vm.pocetNeodeslanych > 0 || vm.pocetFtpFronta > 0) potvrditKonec = true
+        else activity?.finishAndRemoveTask()
+    }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("EET 2.0") },
                 actions = {
-                    IconButton(onClick = { vm.obrazovka = Obrazovka.Nastaveni }) {
+                    IconButton(onClick = { vm.otevritNastaveni() }, enabled = !vm.odesilani) {
                         Icon(Icons.Filled.Settings, contentDescription = "Nastavení")
                     }
+                    TextButton(onClick = { konec() }, enabled = !vm.odesilani) { Text("Konec", fontSize = 18.sp) }
                 },
             )
         },
@@ -76,11 +89,26 @@ fun PokladnaScreen(vm: EetViewModel) {
             }
             if (n.firmy.isEmpty()) {
                 Text("Zatím není nastavena žádná firma. Otevřete Nastavení (ozubené kolečko vpravo nahoře) a přidejte firmu s certifikátem.")
-                Button(onClick = { vm.obrazovka = Obrazovka.Nastaveni }) { Text("Otevřít nastavení") }
+                Button(onClick = { vm.otevritNastaveni() }) { Text("Otevřít nastavení") }
             } else {
                 PokladnaObsah(vm)
             }
         }
+    }
+
+    if (potvrditKonec) {
+        AlertDialog(
+            onDismissRequest = { potvrditKonec = false },
+            title = { Text("Ukončit aplikaci?") },
+            text = {
+                Text(
+                    "Některé tržby nebo záznamy ještě nejsou odeslané (EET: ${vm.pocetNeodeslanych}, FTP: ${vm.pocetFtpFronta}). " +
+                        "Nezapomenou se – doposílají se po dalším spuštění aplikace. Tržby do EET je ale nutné doposlat do 48 hodin."
+                )
+            },
+            confirmButton = { TextButton(onClick = { potvrditKonec = false; activity?.finishAndRemoveTask() }) { Text("Ukončit") } },
+            dismissButton = { TextButton(onClick = { potvrditKonec = false }) { Text("Zpět") } },
+        )
     }
 
     vm.vysledek?.let { v ->
@@ -130,7 +158,14 @@ private fun PokladnaObsah(vm: EetViewModel) {
             }
         }
         firma?.let {
-            Text(it.nazev, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(
+                it.nazev.ifBlank { it.dic },
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
             Text("DIČ ${it.dic}  •  provozovna ${it.idProvozovny}  •  pokladna ${it.idPokladny}", style = MaterialTheme.typography.bodyMedium)
         }
         OutlinedTextField(

@@ -3,7 +3,8 @@
 Jednoduchá pokladna pro evidenci tržeb do EET 2.0 (Kotlin, Jetpack Compose).
 
 - **Nastavení** – jedna nebo více firem (pokladní certifikát `.p12` + heslo, název, DIČ, číslo provozovny, označení pokladny), společné FTP/FTPS, testovací (Playground) / ostrý režim.
-- **Pokladna** – přepínání firem, obsluha zadá částku a stiskne *Tržbu zaevidovat*; výsledek se ohlásí a po potvrzení se nabídne další částka.
+- **Nastavení** je chráněno heslem (nastaví se při prvním otevření, ukládá se jen otisk PBKDF2; lze změnit v Nastavení).
+- **Pokladna** – přepínání firem, obsluha zadá částku a stiskne *Tržbu zaevidovat*; výsledek se ohlásí a po potvrzení se nabídne další částka. Tlačítko *Konec* ukončí aplikaci (upozorní na nedoručené tržby).
 - **Výsledky** se ihned připisují na FTP do souboru `<začátek>_RRRR-MM-DD.csv` (UTF-8, středník):
   `DIC;castka;POK;datum_cas;chyba;firma;porad_cis;stav;rezim`
 - Nedoručené tržby (bez spojení / dočasná chyba) se doposílají každou minutu s `prvni_zaslani=false`; nedostupné FTP se zapíše později.

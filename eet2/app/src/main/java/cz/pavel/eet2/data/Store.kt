@@ -40,6 +40,11 @@ class Store(context: Context) {
 
     fun ulozFtpFrontu(list: List<ZaznamFtp>) = zapis("ftp_fronta.json", json.ftpToJson(list))
 
+    fun nactiHesloNastaveni(): String? =
+        runCatching { soubor("heslo_nastaveni.txt").readText() }.getOrNull()?.takeIf { it.isNotBlank() }
+
+    fun ulozHesloNastaveni(ulozene: String) = zapis("heslo_nastaveni.txt", ulozene)
+
     fun certSoubor(name: String) = File(certDir, name)
 
     private fun klic(): SecretKey {

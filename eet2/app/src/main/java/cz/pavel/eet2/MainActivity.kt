@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import cz.pavel.eet2.ui.EetViewModel
+import cz.pavel.eet2.ui.HesloDialog
 import cz.pavel.eet2.ui.NastaveniScreen
 import cz.pavel.eet2.ui.Obrazovka
 import cz.pavel.eet2.ui.PokladnaScreen
@@ -21,6 +22,7 @@ class MainActivity : ComponentActivity() {
         vm.obrazovka
         setContent {
             MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF2E7D32), secondary = Color(0xFF1565C0))) {
+                vm.hesloDialog?.let { HesloDialog(vm, it) }
                 when (vm.obrazovka) {
                     Obrazovka.Pokladna -> PokladnaScreen(vm)
                     Obrazovka.Nastaveni -> {

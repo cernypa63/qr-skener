@@ -11,6 +11,7 @@ import cz.pavel.eet2.data.CsvLog
 import cz.pavel.eet2.data.Firma
 import cz.pavel.eet2.data.FtpAppender
 import cz.pavel.eet2.data.FtpNastaveni
+import cz.pavel.eet2.data.HesloNastaveni
 import cz.pavel.eet2.data.Nastaveni
 import cz.pavel.eet2.data.NeodeslanaTrzba
 import cz.pavel.eet2.data.Store
@@ -30,6 +31,8 @@ import java.time.format.DateTimeFormatter
 
 enum class Obrazovka { Pokladna, Nastaveni }
 
+enum class HesloRezim { Nastavit, Zadat, Zmenit }
+
 enum class Druh { Ok, Chyba, Doposlat }
 
 data class Vysledek(val druh: Druh, val titulek: String, val text: String)
@@ -47,6 +50,7 @@ class EetViewModel(app: Application) : AndroidViewModel(app) {
     var pocetNeodeslanych by mutableIntStateOf(store.nactiNeodeslane().size); private set
     var pocetFtpFronta by mutableIntStateOf(store.nactiFtpFrontu().size); private set
     var hlaskaFtp by mutableStateOf<String?>(null); private set
+    var hesloDialog by mutableStateOf<HesloRezim?>(null)
 
     init {
         viewModelScope.launch {
@@ -61,6 +65,32 @@ class EetViewModel(app: Application) : AndroidViewModel(app) {
     private fun naMain(block: () -> Unit) { main.post(block) }
 
     private fun url(ostry: Boolean) = if (ostry) EetClient.URL_PRODUKCE else EetClient.URL_PLAYGROUND
+
+    fun otevritNastaveni() {
+        hesloDialog = if (store.nactiHesloNastaveni() == null) HesloRezim.Nastavit else HesloRezim.Zadat
+    }
+
+    fun zmenitHeslo() { hesloDialog = HesloRezim.Zmenit }
+
+    /** Vrací chybovou hlášku, nebo null, když je vše v pořádku. */
+    fun potvrditHeslo(heslo: String, znovu: String): String? {
+        when (hesloDialog) {
+            HesloRezim.Zadat -> {
+                val ulozene = store.nactiHesloNastaveni()
+                if (ulozene != null && !HesloNastaveni.over(ulozene, heslo)) return "Špatné heslo"
+                obrazovka = Obrazovka.Nastaveni
+            }
+            HesloRezim.Nastavit, HesloRezim.Zmenit -> {
+                if (heslo.length < 4) return "Heslo musí mít alespoň 4 znaky"
+                if (heslo != znovu) return "Hesla se neshodují"
+                store.ulozHesloNastaveni(HesloNastaveni.vytvor(heslo))
+                obrazovka = Obrazovka.Nastaveni
+            }
+            null -> {}
+        }
+        hesloDialog = null
+        return null
+    }
 
     fun vyberFirmu(id: String) {
         ulozNastaveni(nastaveni.copy(vybranaFirmaId = id))
