@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -80,14 +81,8 @@ fun PokladnaScreen(vm: EetViewModel) {
             Modifier.padding(padding).fillMaxSize().imePadding().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (!n.ostryProvoz) {
-                Text(
-                    "TESTOVACÍ REŽIM – tržby se neevidují naostro",
-                    Modifier.fillMaxWidth().background(Color(0xFFFFE0B2)).padding(8.dp),
-                    color = Color(0xFFE65100), fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-                )
-            }
             if (n.firmy.isEmpty()) {
+                if (!n.ostryProvoz) TestovaciRezim()
                 Text("Zatím není nastavena žádná firma. Otevřete Nastavení (ozubené kolečko vpravo nahoře) a přidejte firmu s certifikátem.")
                 Button(onClick = { vm.otevritNastaveni() }) { Text("Otevřít nastavení") }
             } else {
@@ -143,18 +138,38 @@ private fun PokladnaObsah(vm: EetViewModel) {
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (n.firmy.size > 1) {
-            Text("Firma:", style = MaterialTheme.typography.labelLarge)
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                n.firmy.forEach { f ->
-                    FilterChip(
-                        selected = f.id == firma?.id,
-                        onClick = { vm.vyberFirmu(f.id) },
-                        label = { Text(f.nazev.ifBlank { f.dic }) },
-                        enabled = !vm.odesilani,
-                    )
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(
+            Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (!n.ostryProvoz) TestovaciRezim()
+            if (n.firmy.size > 1) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    n.firmy.forEach { f ->
+                        FilterChip(
+                            selected = f.id == firma?.id,
+                            onClick = { vm.vyberFirmu(f.id) },
+                            label = { Text(f.nazev.ifBlank { f.dic }) },
+                            enabled = !vm.odesilani,
+                        )
+                    }
                 }
+            }
+            firma?.let {
+                Text("DIČ ${it.dic}  •  provozovna ${it.idProvozovny}  •  pokladna ${it.idPokladny}", style = MaterialTheme.typography.bodyMedium)
+            }
+            if (vm.pocetNeodeslanych > 0) {
+                Text(
+                    "Nedoručené tržby: ${vm.pocetNeodeslanych} – doposílají se automaticky každou minutu.",
+                    color = Color(0xFFE65100),
+                )
+            }
+            if (vm.pocetFtpFronta > 0) {
+                Text(
+                    "Záznamy čekající na uložení na FTP: ${vm.pocetFtpFronta}" + (vm.hlaskaFtp?.let { " ($it)" } ?: ""),
+                    color = Color(0xFFE65100),
+                )
             }
         }
         firma?.let {
@@ -166,7 +181,6 @@ private fun PokladnaObsah(vm: EetViewModel) {
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             )
-            Text("DIČ ${it.dic}  •  provozovna ${it.idProvozovny}  •  pokladna ${it.idPokladny}", style = MaterialTheme.typography.bodyMedium)
         }
         OutlinedTextField(
             value = vm.castka,
@@ -182,7 +196,7 @@ private fun PokladnaObsah(vm: EetViewModel) {
         Button(
             onClick = { vm.zaevidovat() },
             enabled = !vm.odesilani,
-            modifier = Modifier.fillMaxWidth().height(64.dp),
+            modifier = Modifier.fillMaxWidth().height(60.dp),
         ) {
             if (vm.odesilani) {
                 CircularProgressIndicator(Modifier.size(24.dp), color = Color.White, strokeWidth = 3.dp)
@@ -192,17 +206,14 @@ private fun PokladnaObsah(vm: EetViewModel) {
                 Text("Tržbu zaevidovat", fontSize = 20.sp)
             }
         }
-        if (vm.pocetNeodeslanych > 0) {
-            Text(
-                "Nedoručené tržby: ${vm.pocetNeodeslanych} – doposílají se automaticky každou minutu.",
-                color = Color(0xFFE65100),
-            )
-        }
-        if (vm.pocetFtpFronta > 0) {
-            Text(
-                "Záznamy čekající na uložení na FTP: ${vm.pocetFtpFronta}" + (vm.hlaskaFtp?.let { " ($it)" } ?: ""),
-                color = Color(0xFFE65100),
-            )
-        }
     }
+}
+
+@Composable
+private fun TestovaciRezim() {
+    Text(
+        "TESTOVACÍ REŽIM – tržby se neevidují naostro",
+        Modifier.fillMaxWidth().background(Color(0xFFFFE0B2)).padding(horizontal = 8.dp, vertical = 4.dp),
+        color = Color(0xFFE65100), fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontSize = 14.sp,
+    )
 }
