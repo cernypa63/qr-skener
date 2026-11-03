@@ -1,0 +1,57 @@
+name: SEET2ND pro Windows
+
+on:
+  push:
+    paths:
+      - "seet2nd/**"
+      - ".github/workflows/seet2nd.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: seet2nd
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Testovací certifikáty Playground
+        shell: powershell
+        run: |
+          $d = "$env:RUNNER_TEMP\pg"
+          Invoke-WebRequest "https://eet.gov.cz/assets/cs/cmsmedia/pro-vyvojare/CAEET_Playground_2026_v1.zip" -OutFile "$env:RUNNER_TEMP\pg.zip"
+          Expand-Archive "$env:RUNNER_TEMP\pg.zip" -DestinationPath $d -Force
+          "EET_PLAYGROUND_DIR=$d" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
+      - name: Testy
+        run: dotnet test tests
+      - name: Sestavení
+        run: dotnet build src -c Release -o out
+      - name: Kontrola spuštění (Playground)
+        shell: powershell
+        run: |
+          $d = $env:EET_PLAYGROUND_DIR
+          $t = $env:RUNNER_TEMP
+          $heslo = (Get-Content "$d\password_pokladni_cert_playground.txt" -Raw).Trim()
+          $doklad = "CI" + (Get-Date -Format "yyMMddHHmmss")
+          $xml = "<?xml version=`"1.0`" encoding=`"WINDOWS-1250`"?>`r`n<eet2_data>`r`n<cert>$d\CA_EET-Playground-CZ00000019.p12</cert>`r`n<pass>$heslo</pass>`r`n<DIC>CZ00000019</DIC>`r`n<PlayGround>1</PlayGround>`r`n<id_pokl>POK1</id_pokl>`r`n<id_jednotky>11</id_jednotky>`r`n<trzba>123,12</trzba>`r`n<doklad>$doklad</doklad>`r`n<output>$t\res.xml</output>`r`n</eet2_data>`r`n"
+          [IO.File]::WriteAllText("$t\in.xml", $xml, [Text.Encoding]::GetEncoding(1250))
+          ./out/SEET2ND.exe "$t\in.xml"
+          $kod = $LASTEXITCODE
+          Get-Content "$t\res.xml"
+          if ($kod -ne 0) { exit 1 }
+          if (-not ((Get-Content "$t\res.xml" -Raw) -match "<POK>[0-9a-f-]{39}</POK>")) { exit 1 }
+          [IO.File]::WriteAllText("$t\bad.xml", "<eet2_data><cert>x</cert></eet2_data>")
+          ./out/SEET2ND.exe "$t\bad.xml"
+          if ($LASTEXITCODE -ne 2) { exit 1 }
+          Get-Content ./out/SEET2ND.err
+          Remove-Item ./out/SEET2ND.err
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: seet2nd-windows
+          path: |
+            seet2nd/out/SEET2ND.exe
+            seet2nd/out/SEET2ND.exe.config
