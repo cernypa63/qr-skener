@@ -28,7 +28,9 @@ jobs:
       - name: Testy
         run: dotnet test tests
       - name: Sestavení
-        run: dotnet build src -c Release -o out
+        run: |
+          dotnet build src -c Release -o out
+          dotnet build licgen -c Release -o outlic
       - name: Kontrola spuštění (Playground)
         shell: powershell
         run: |
@@ -48,6 +50,18 @@ jobs:
           if ($LASTEXITCODE -ne 2) { exit 1 }
           Get-Content ./out/SEET2ND.err
           Remove-Item ./out/SEET2ND.err
+          $xml0 = $xml.Replace("<PlayGround>1</PlayGround>", "<PlayGround>0</PlayGround>")
+          [IO.File]::WriteAllText("$t\in0.xml", $xml0, [Text.Encoding]::GetEncoding(1250))
+          ./out/SEET2ND.exe "$t\in0.xml"
+          if ($LASTEXITCODE -ne 4) { exit 1 }
+          if (-not ((Get-Content "$t\res.xml" -Raw) -match "<stav>LICENCE</stav>")) { exit 1 }
+          ./out/SEET2ND.exe /licence CZ00000019 "0.GV3PBOKMX4Yi0jAUG92oj2dyW8sQ5_yib6JzYNmZL6o4p7b0w2RSIwxZZ2vfPVWC2yuswX628i0s-ZphszXACA" | Out-Host
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          ./out/SEET2ND.exe /licence CZ00000027 "0.GV3PBOKMX4Yi0jAUG92oj2dyW8sQ5_yib6JzYNmZL6o4p7b0w2RSIwxZZ2vfPVWC2yuswX628i0s-ZphszXACA" | Out-Host
+          if ($LASTEXITCODE -ne 4) { exit 1 }
+          $p = Start-Process ./outlic/SEET2ND_LIC.exe -ArgumentList "CZ00000019","0","$t\kod.txt" -Wait -PassThru
+          Get-Content "$t\kod.txt"
+          if ($p.ExitCode -ne 3) { exit 1 }
           exit 0
       - uses: actions/upload-artifact@v4
         with:
@@ -55,3 +69,5 @@ jobs:
           path: |
             seet2nd/out/SEET2ND.exe
             seet2nd/out/SEET2ND.exe.config
+            seet2nd/outlic/SEET2ND_LIC.exe
+            seet2nd/outlic/SEET2ND_LIC.exe.config

@@ -10,7 +10,9 @@ namespace Seet2nd
 {
     /// <summary>
     /// Návratové kódy: 0 = tržba zaevidována, 1 = EET chyba nebo nedoručeno (viz výstupní soubor),
-    /// 2 = chyba vstupu (viz SEET2ND.err), 3 = výstupní soubor nelze zapsat (viz SEET2ND.err).
+    /// 2 = chyba vstupu (viz SEET2ND.err), 3 = výstupní soubor nelze zapsat (viz SEET2ND.err),
+    /// 4 = chybí nebo je neplatná licence pro ostré prostředí (tržba se neodeslala, viz výstupní soubor).
+    /// Ověření licence: SEET2ND.exe /licence DIČ kód (vypíše výsledek, návratový kód 0 nebo 4).
     /// </summary>
     public static class Aplikace
     {
@@ -22,6 +24,9 @@ namespace Seet2nd
         {
             var errSoubor = Path.Combine(adresarExe, SouborChyby);
             try { File.Delete(errSoubor); } catch (Exception) { }
+
+            if (args.Length == 3 && string.Equals(args[0], "/licence", StringComparison.OrdinalIgnoreCase))
+                return OverLicenci(args[1], args[2]);
 
             if (args.Length != 1)
             {
@@ -47,7 +52,11 @@ namespace Seet2nd
                 PoradCis = v.Doklad, DatTrzby = datTrzby, Castka = v.Trzba,
             };
 
+            Licence.Vysledek lic = null;
             Odpoved o;
+            if (!v.PlayGround && !(lic = Licence.Over(v.Dic, v.Licence, DateTime.Today)).Platna)
+                o = new Odpoved { Stav = Stav.LICENCE, Zprava = lic.Chyba, DatOdesl = EetXml.Datum(DateTimeOffset.Now) };
+            else
             try
             {
                 X509Certificate2 cert;
@@ -73,6 +82,9 @@ namespace Seet2nd
                 o = new Odpoved { Stav = Stav.CHYBA, Zprava = "Chyba certifikátu nebo podpisu: " + e.Message.Trim(), DatOdesl = EetXml.Datum(DateTimeOffset.Now) };
             }
 
+            if (lic != null && lic.Platna && lic.PlatnaDo.HasValue && (lic.PlatnaDo.Value - DateTime.Today).TotalDays < 30)
+                o.Varovani.Add(new System.Collections.Generic.KeyValuePair<string, string>("LIC", "Licence pro DIČ " + v.Dic + " končí " + lic.PlatnostText + "."));
+
             try
             {
                 ZapisVysledek(v.Output, v, data, o);
@@ -83,7 +95,17 @@ namespace Seet2nd
                     "Výsledek: " + o.Stav + " POK=" + o.Pok + " " + o.Zprava);
                 return 3;
             }
-            return o.Stav == Stav.OK ? 0 : 1;
+            return o.Stav == Stav.OK ? 0 : o.Stav == Stav.LICENCE ? 4 : 1;
+        }
+
+        private static int OverLicenci(string dicText, string kod)
+        {
+            var dic = Vstup.NormalizujDic(dicText);
+            var lic = dic == null ? null : Licence.Over(dic, kod, DateTime.Today);
+            Console.WriteLine(dic == null ? "Neplatné DIČ: " + dicText
+                : lic.Platna ? "Licence pro " + dic + " je platná, platnost: " + lic.PlatnostText + "."
+                : lic.Chyba);
+            return lic != null && lic.Platna ? 0 : 4;
         }
 
         private sealed class ChybaCertifikatu : Exception

@@ -36,6 +36,7 @@ SEET2ND.exe cesta_k_souboru_vstupnich_hodnot
 | `output` | ano | soubor, kam se zapíše výsledek |
 | `prvni_zaslani` | ne | `1` = první odeslání (výchozí), `0` = opakované odeslání nedoručené tržby |
 | `dat_trzby` | ne | datum a čas tržby, např. `31.10.2026 15:01:03`; výchozí je aktuální čas. Při `prvni_zaslani` = 0 povinné – původní čas tržby |
+| `licence` | pro ostré | licenční kód pro DIČ; bez platné licence lze odesílat jen do testovacího prostředí (`PlayGround` = 1) |
 | `timeout` | ne | jak dlouho čekat na odpověď EET v sekundách (2–120), výchozí 10 |
 
 ## Výstupní soubor (windows-1250)
@@ -63,12 +64,28 @@ SEET2ND.exe cesta_k_souboru_vstupnich_hodnot
 ```
 
 - `chyba`: `0` = tržba zaevidována, `1` = nezaevidována.
+- `stav`: `LICENCE` = ostré prostředí bez platné licence, tržba se neodeslala.
 - `stav`: `OK`, `CHYBA` (EET zprávu odmítl nebo je chyba certifikátu – opakování nepomůže) nebo `NEDORUCENO` (výpadek spojení nebo dočasná chyba EET – tržbu je nutné doposlat s `prvni_zaslani` = 0 a původním `dat_trzby`, nejpozději do 48 hodin).
 - `kod_chyby` a `zprava`: kód a text chyby z EET, `varovani`: případná varování EET.
 
 Pokud vstupní soubor nejde načíst nebo má chybnou strukturu, vznikne vedle `SEET2ND.exe` soubor `SEET2ND.err` s popisem chyby (při každém spuštění se starý `SEET2ND.err` nejdřív smaže).
 
-Návratový kód: `0` = OK, `1` = chyba/nedoručeno (viz výstup), `2` = chybný vstup (viz `SEET2ND.err`), `3` = výstup nelze zapsat (viz `SEET2ND.err`).
+Návratový kód: `0` = OK, `1` = chyba/nedoručeno (viz výstup), `2` = chybný vstup (viz `SEET2ND.err`), `3` = výstup nelze zapsat (viz `SEET2ND.err`), `4` = chybí nebo neplatná licence (viz výstup).
+
+## Licence
+
+- Testovací prostředí (`PlayGround` = 1) funguje bez licence.
+- Ostré prostředí (`PlayGround` = 0) vyžaduje `<licence>kód</licence>` platný pro dané DIČ. Kód obsahuje datum konce platnosti (nebo „bez omezení“) a digitální podpis; změna DIČ nebo data kód zneplatní.
+- 30 dní před koncem platnosti se do výstupu přidá `<varovani kod="LIC">`.
+- Ověření kódu: `SEET2ND.exe /licence CZ12345678 kód` (návratový kód 0 = platná, 4 = neplatná).
+
+### Generátor licencí SEET2ND_LIC.exe
+
+Potřebuje vedle sebe soubor se soukromým klíčem `SEET2ND_LIC.key` (není v repozitáři, nesmí se dávat zákazníkům).
+
+- Bez parametrů otevře okno: DIČ, firma, platnost → „Vytvořit licenci“ → kód ke zkopírování.
+- Příkazový řádek: `SEET2ND_LIC.exe DIČ [platnost d.M.yyyy nebo 0] [soubor]` – kód zapíše do souboru (bez souboru na výstup).
+- Každá vydaná licence se zapíše do `licence_seznam.csv` vedle generátoru.
 
 ## Sestavení
 

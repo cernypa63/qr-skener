@@ -26,6 +26,7 @@ namespace Seet2nd
         public bool PrvniZaslani = true;
         public DateTimeOffset? DatTrzby;
         public int TimeoutSekund = 10;
+        public string Licence = "";
 
         public static Vstup Nacti(string cesta)
         {
@@ -69,11 +70,9 @@ namespace Seet2nd
                 Pass = Hodnota("pass", false),
             };
 
-            var dic = Hodnota("DIC", true).Replace(" ", "").ToUpperInvariant();
-            if (!dic.StartsWith("CZ")) dic = "CZ" + dic;
-            if (!Regex.IsMatch(dic, "^CZ[0-9]{8,10}$"))
-                throw new ChybaVstupu("Neplatné DIČ <DIC>: " + dic + " (očekává se CZ a 8 až 10 číslic).");
-            v.Dic = dic;
+            var dic = Hodnota("DIC", true);
+            v.Dic = NormalizujDic(dic) ?? throw new ChybaVstupu("Neplatné DIČ <DIC>: " + dic + " (očekává se CZ a 8 až 10 číslic).");
+            v.Licence = Hodnota("licence", false);
 
             switch (Hodnota("PlayGround", true))
             {
@@ -120,6 +119,14 @@ namespace Seet2nd
                 v.TimeoutSekund = s;
             }
             return v;
+        }
+
+        /// <summary>"cz 12345678" -> "CZ12345678"; null, když text není platné DIČ.</summary>
+        public static string NormalizujDic(string text)
+        {
+            var dic = (text ?? "").Replace(" ", "").Trim().ToUpperInvariant();
+            if (!dic.StartsWith("CZ")) dic = "CZ" + dic;
+            return Regex.IsMatch(dic, "^CZ[0-9]{8,10}$") ? dic : null;
         }
 
         /// <summary>"123,5" -> "123.50"; null, když text není platná částka.</summary>

@@ -8,7 +8,7 @@ using System.Xml;
 
 namespace Seet2nd
 {
-    public enum Stav { OK, CHYBA, NEDORUCENO }
+    public enum Stav { OK, CHYBA, NEDORUCENO, LICENCE }
 
     public sealed class Odpoved
     {

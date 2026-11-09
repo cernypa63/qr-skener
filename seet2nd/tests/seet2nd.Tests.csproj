@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <Compile Include="../src/*.cs" Exclude="../src/Program.cs" />
+    <Compile Include="../licgen/Podpis.cs" />
   </ItemGroup>
 
   <ItemGroup>
