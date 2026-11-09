@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>SEET2ND_LIC</AssemblyName>
+    <RootNamespace>Seet2nd</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>SEET2ND</Product>
+    <Description>Generátor licencí SEET2ND</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../src/Licence.cs" Link="Licence.cs" />
+    <Compile Include="../src/Vstup.cs" Link="Vstup.cs" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
