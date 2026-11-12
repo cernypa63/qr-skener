@@ -125,11 +125,14 @@ namespace SendFtp
 
         public static List<string> Soubory(string cesta)
         {
-            var plna = Path.GetFullPath(cesta);
-            var jmeno = Path.GetFileName(plna);
+            var lomitko = cesta.LastIndexOfAny(new[] { '\\', '/' });
+            var jmeno = cesta.Substring(lomitko + 1);
             if (jmeno.IndexOfAny(new[] { '*', '?' }) < 0)
+            {
+                var plna = Path.GetFullPath(cesta);
                 return File.Exists(plna) ? new List<string> { plna } : new List<string>();
-            var adr = Path.GetDirectoryName(plna);
+            }
+            var adr = Path.GetFullPath(lomitko < 0 ? "." : cesta.Substring(0, lomitko + 1));
             if (!Directory.Exists(adr)) return new List<string>();
             var vysledek = new List<string>(Directory.GetFiles(adr, jmeno));
             vysledek.Sort(StringComparer.OrdinalIgnoreCase);
