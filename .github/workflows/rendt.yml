@@ -1,0 +1,53 @@
+name: RENDT pro Windows
+
+on:
+  push:
+    paths:
+      - "rendt/**"
+      - ".github/workflows/rendt.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: rendt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Testy
+        run: dotnet test tests
+      - name: Sestavení
+        run: dotnet build src -c Release -o out
+      - name: Kontrola spuštění v různých nastaveních data
+        shell: powershell
+        run: |
+          $t = $env:RUNNER_TEMP
+          ./out/RENDT.exe
+          if ($LASTEXITCODE -ne 2) { exit 1 }
+          ./out/RENDT.exe "$t\neni.pdf"
+          if ($LASTEXITCODE -ne 4) { exit 1 }
+          Get-Content ./out/RENDT.err
+          foreach ($k in "cs-CZ", "en-US", "ar-SA", "th-TH") {
+            Set-Culture $k
+            [IO.File]::WriteAllText("$t\fa 1.pdf", "x")
+            $nove = powershell -NoProfile -Command "(Get-Culture).Name | Out-Host; & '$PWD\out\RENDT.exe' '$t\fa 1.pdf'; exit `$LASTEXITCODE"
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            Write-Output "$k -> $nove"
+            $jm = Split-Path -Leaf $nove
+            if ($jm -notmatch '^fa 1_\d{6}_\d{6}\.pdf$') { exit 1 }
+            if (-not (Test-Path $nove)) { exit 1 }
+            if ($jm.Substring(5, 2) -ne (Get-Date).ToString("yy", [Globalization.CultureInfo]::InvariantCulture)) { exit 1 }
+            Remove-Item $nove
+          }
+          if (Test-Path ./out/RENDT.err) { Remove-Item ./out/RENDT.err }
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rendt-windows
+          path: |
+            rendt/out/RENDT.exe
+            rendt/out/RENDT.exe.config
