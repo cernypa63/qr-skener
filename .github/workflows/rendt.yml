@@ -34,9 +34,10 @@ jobs:
           foreach ($k in "cs-CZ", "en-US", "ar-SA", "th-TH") {
             Set-Culture $k
             [IO.File]::WriteAllText("$t\fa 1.pdf", "x")
-            $nove = powershell -NoProfile -Command "(Get-Culture).Name | Out-Host; & '$PWD\out\RENDT.exe' '$t\fa 1.pdf'; exit `$LASTEXITCODE"
+            $vystup = powershell -NoProfile -Command "(Get-Culture).Name | Out-Host; & '$PWD\out\RENDT.exe' '$t\fa 1.pdf'; exit `$LASTEXITCODE"
             if ($LASTEXITCODE -ne 0) { exit 1 }
-            Write-Output "$k -> $nove"
+            $nove = @($vystup)[-1]
+            Write-Output "$k -> $vystup"
             $jm = Split-Path -Leaf $nove
             if ($jm -notmatch '^fa 1_\d{6}_\d{6}\.pdf$') { exit 1 }
             if (-not (Test-Path $nove)) { exit 1 }
