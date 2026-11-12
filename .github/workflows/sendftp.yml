@@ -1,0 +1,72 @@
+name: SENDFTP pro Windows
+
+on:
+  push:
+    paths:
+      - "sendftp/**"
+      - "ftpdir/src/**"
+      - ".github/workflows/sendftp.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: sendftp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Testy
+        run: dotnet test tests
+      - name: Sestavení
+        run: dotnet build src -c Release -o out
+      - name: Zkouška se skutečným FTP serverem
+        shell: powershell
+        run: |
+          $t = $env:RUNNER_TEMP
+          pip install pyftpdlib
+          New-Item -ItemType Directory "$t\root" | Out-Null
+          $srv = "from pyftpdlib.authorizers import DummyAuthorizer`nfrom pyftpdlib.handlers import FTPHandler`nfrom pyftpdlib.servers import FTPServer`na=DummyAuthorizer()`na.add_user('u','Tajne123',r'$t\root',perm='elradfmwMT')`nh=FTPHandler`nh.authorizer=a`nh.passive_ports=range(30000,30100)`nFTPServer(('127.0.0.1',2121),h).serve_forever()`n"
+          [IO.File]::WriteAllText("$t\srv.py", $srv)
+          Start-Process python -ArgumentList "$t\srv.py" -WindowStyle Hidden
+          Start-Sleep 3
+          ./out/SENDFTP.exe "$t\x.pdf" import
+          if ($LASTEXITCODE -ne 2) { exit 1 }
+          Get-Content ./out/SENDFTP.err
+          [IO.File]::WriteAllText("$t\p.txt", "host=127.0.0.1`r`nport=2121`r`nlogin=u`r`nheslo=spatne`r`n")
+          ./out/SENDFTP.exe /nastav "$t\p.txt"
+          if ($LASTEXITCODE -ne 3) { exit 1 }
+          [IO.File]::WriteAllText("$t\p.txt", "host=127.0.0.1`r`nport=2121`r`nlogin=u`r`nheslo=Tajne123`r`n")
+          ./out/SENDFTP.exe /nastav "$t\p.txt"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if ((Get-Content -Raw ./out/SENDFTP.cfg) -match "Tajne123|127.0.0.1") { exit 1 }
+          ./out/SENDFTP.exe /info
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          New-Item -ItemType Directory "$t\data" | Out-Null
+          [IO.File]::WriteAllBytes("$t\data\fa 1.pdf", [byte[]](1..200000 | ForEach-Object { $_ % 256 }))
+          [IO.File]::WriteAllText("$t\data\fa2.pdf", "B")
+          [IO.File]::WriteAllText("$t\data\c.txt", "C")
+          ./out/SENDFTP.exe "$t\data\*.pdf" "import/2026/11"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          ./out/SENDFTP.exe "$t\data\fa2.pdf" "import/2026/11"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Get-ChildItem -Recurse "$t\root"
+          if ((Get-Item "$t\root\import\2026\11\fa 1.pdf").Length -ne 200000) { exit 1 }
+          if (-not (Test-Path "$t\root\import\2026\11\fa2.pdf")) { exit 1 }
+          if ((Get-ChildItem -Recurse "$t\root" -File).Count -ne 2) { exit 1 }
+          cmd /c "out\SENDFTP.exe $t\data\neni.pdf import & if errorlevel 4 echo OK-errorlevel"
+          if (Test-Path ./out/SENDFTP.err) { Remove-Item ./out/SENDFTP.err }
+          Remove-Item ./out/SENDFTP.cfg
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sendftp-windows
+          path: |
+            sendftp/out/SENDFTP.exe
+            sendftp/out/SENDFTP.exe.config

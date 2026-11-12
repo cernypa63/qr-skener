@@ -115,9 +115,8 @@ namespace FtpDir
             if (o.Kod != 250 && o.Kod != 200) throw new ChybaFtp("Adresář " + adresar + " nelze otevřít: " + o.Text);
         }
 
-        public List<string> List()
+        private TcpClient OtevriData()
         {
-            Prikaz("TYPE A");
             var o = Prikaz("PASV");
             var m = Regex.Match(o.Text, @"(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)");
             if (o.Kod != 227 || !m.Success) throw new ChybaFtp("Server nepodporuje pasivní režim: " + o.Text);
@@ -125,9 +124,15 @@ namespace FtpDir
             var serverIp = ((IPEndPoint)_ridici.Client.RemoteEndPoint).Address;
             if (Neverejna(ip) && !Neverejna(serverIp)) ip = serverIp;
             var port = int.Parse(m.Groups[5].Value) * 256 + int.Parse(m.Groups[6].Value);
+            return Pripoj(ip.ToString(), port, _timeoutMs, "datový kanál FTP " + ip + ":" + port);
+        }
 
+        public List<string> List()
+        {
+            Prikaz("TYPE A");
+            Odpoved o;
             byte[] data;
-            using (var dc = Pripoj(ip.ToString(), port, _timeoutMs, "datový kanál FTP " + ip + ":" + port))
+            using (var dc = OtevriData())
             {
                 o = Prikaz("LIST");
                 if (o.Kod != 150 && o.Kod != 125) throw new ChybaFtp("Výpis adresáře se nepovedl: " + o.Text);
@@ -171,6 +176,59 @@ namespace FtpDir
             }
             return vysledek;
         }
+
+        /// <summary>Přejde do adresáře; chybějící části cesty vytvoří.</summary>
+        public void ZmenAdresarVytvor(string adresar)
+        {
+            if (Prikaz("CWD " + adresar).Kod == 250) return;
+            if (adresar.StartsWith("/", StringComparison.Ordinal)) ZmenAdresar("/");
+            foreach (var cast in adresar.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (Prikaz("CWD " + cast).Kod == 250) continue;
+                var o = Prikaz("MKD " + cast);
+                if (o.Kod != 257 && o.Kod != 250) throw new ChybaFtp("Adresář " + adresar + " nelze vytvořit: " + o.Text);
+                ZmenAdresar(cast);
+            }
+        }
+
+        /// <summary>Nahraje soubor binárně pod jménem nazev (přepíše existující).</summary>
+        public void Uloz(string nazev, Stream zdroj)
+        {
+            Prikaz("TYPE I");
+            Odpoved o;
+            using (var dc = OtevriData())
+            {
+                o = Prikaz("STOR " + nazev);
+                if (o.Kod != 150 && o.Kod != 125) throw new ChybaFtp("Soubor " + nazev + " nelze uložit: " + o.Text);
+                try
+                {
+                    var s = dc.GetStream();
+                    zdroj.CopyTo(s);
+                    s.Flush();
+                    dc.Client.Shutdown(SocketShutdown.Send);
+                }
+                catch (IOException e) { throw new ChybaFtp("Přenos souboru " + nazev + " se přerušil: " + e.Message); }
+            }
+            o = Cti();
+            if (o.Kod != 226 && o.Kod != 250) throw new ChybaFtp("Soubor " + nazev + " se neuložil: " + o.Text);
+        }
+
+        /// <summary>Velikost souboru na serveru (SIZE), null pokud ji server neuvede.</summary>
+        public long? Velikost(string nazev)
+        {
+            var o = Prikaz("SIZE " + nazev);
+            return o.Kod == 213 && long.TryParse(o.Text.Substring(3).Trim(), out var v) ? v : (long?)null;
+        }
+
+        public void Prejmenuj(string z, string na)
+        {
+            var o = Prikaz("RNFR " + z);
+            if (o.Kod != 350) throw new ChybaFtp("Soubor " + z + " nelze přejmenovat: " + o.Text);
+            o = Prikaz("RNTO " + na);
+            if (o.Kod != 250) throw new ChybaFtp("Soubor " + z + " nelze přejmenovat na " + na + ": " + o.Text);
+        }
+
+        public bool Smaz(string nazev) => Prikaz("DELE " + nazev).Kod == 250;
 
         private static bool Neverejna(IPAddress ip)
         {
