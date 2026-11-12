@@ -36,6 +36,7 @@ jobs:
           [IO.File]::WriteAllText("$t\srv.py", $srv)
           Start-Process python -ArgumentList "$t\srv.py" -WindowStyle Hidden
           Start-Sleep 3
+          [IO.File]::WriteAllText("$t\x.pdf", "X")
           ./out/SENDFTP.exe "$t\x.pdf" import
           if ($LASTEXITCODE -ne 2) { exit 1 }
           Get-Content ./out/SENDFTP.err
