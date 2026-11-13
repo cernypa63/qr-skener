@@ -43,6 +43,10 @@ fa_2026010001.pdf;03.01.2026 01:44:04;7045
 
 Při chybě se výstupní soubor smaže a do `FTPDIR.err` vedle exe se zapíše popis chyby. Starý `FTPDIR.err` se při každém spuštění smaže.
 
-Návratový kód: `0` = OK, `2` = chybný soubor parametrů, `3` = chyba FTP (spojení, přihlášení, adresář), `4` = výstup nelze zapsat.
+Návratový kód: `0` = OK, `2` = chybný soubor parametrů, `3` = chyba FTP (spojení, přihlášení, adresář), `4` = výstup nelze zapsat, `5` = CSV je zapsané, ale může být neúplné (viz níže).
+
+## Servery s omezeným výpisem
+
+Některé servery (Pure-FTPd, např. cesky-hosting.cz) vypíšou z adresáře jen prvních 3500 položek a hlásí `Output truncated`. FTPDIR to pozná a adresář vypíše ještě obráceně podle názvu (`LIST -r`). Když se oba výpisy překrývají, je seznam úplný (tak lze načíst až cca 7000 souborů). Jinak zkusí ještě řazení podle času a velikosti, CSV zapíše a skončí kódem `5` s popisem v `FTPDIR.err`.
 
 Používá se nešifrované FTP v pasivním režimu. Heslo je v souboru parametrů – doporučujeme ho po spuštění smazat.
