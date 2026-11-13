@@ -22,6 +22,8 @@ namespace FtpDir.Tests
         public string[] Vypis;
         public Dictionary<string, string> Casy = new Dictionary<string, string>();
         public Encoding Kodovani = Encoding.UTF8;
+        /// <summary>Jako Pure-FTPd na cesky-hosting: výpis seřadí podle názvu (-r obráceně) a zkrátí na Limit řádků.</summary>
+        public int Limit;
         public int Port => ((IPEndPoint)_l.LocalEndpoint).Port;
 
         public TestFtpServer(params string[] vypis)
@@ -65,11 +67,19 @@ namespace FtpDir.Tests
                             using (var dc = data.AcceptTcpClient())
                             {
                                 W("150 Opening");
-                                var b = Kodovani.GetBytes(string.Join("\r\n", Vypis) + "\r\n");
+                                IEnumerable<string> v = Vypis;
+                                if (Limit > 0)
+                                {
+                                    v = Vypis.OrderBy(x => x.Split(' ', StringSplitOptions.RemoveEmptyEntries).Last(), StringComparer.Ordinal);
+                                    if (arg.Contains('r')) v = v.Reverse();
+                                    v = v.Take(Limit);
+                                }
+                                var b = Kodovani.GetBytes(string.Join("\r\n", v) + "\r\n");
                                 dc.GetStream().Write(b, 0, b.Length);
                             }
                             data.Stop();
-                            W("226 Done");
+                            if (Limit > 0 && Vypis.Length > Limit) { W("226-Options: -a -l"); W($"226 Output truncated to {Limit} matches"); }
+                            else W("226 Done");
                             break;
                         case "MDTM": W(Casy.TryGetValue(arg, out var t) ? "213 " + t : "550 Can't check for file existence"); break;
                         case "QUIT": W("221 Bye"); return;
@@ -218,6 +228,34 @@ namespace FtpDir.Tests
             Assert.Equal(5, radky.Length);
             Assert.False(File.Exists(Path.Combine(_dir, Aplikace.SouborChyby)));
             Assert.DoesNotContain(s.Prikazy, p => p == "MDTM archiv");
+            Assert.DoesNotContain(s.Prikazy, p => p.StartsWith("LIST -"));
+        }
+
+        private static string[] Faktury(int pocet) => Enumerable.Range(1, pocet)
+            .Select(i => $"-rw-r--r--    1 1002       olet_cz          {i,5} Jan  3  2026 fa_{2026010000 + i}.pdf").ToArray();
+
+        [Fact]
+        public void ZkracenyVypisSeDoplniObracenym()
+        {
+            using var s = new TestFtpServer(Faktury(7)) { Limit = 4 };
+            s.Casy["fa_2026010007.pdf"] = "20260103014404";
+            Assert.Equal(0, Aplikace.Spust(new[] { Parametry(s.Port, "hlavicka=0\r\n") }, _dir));
+            var radky = Csv.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            Assert.Equal(7, radky.Length);
+            Assert.Equal(Enumerable.Range(1, 7).Select(i => $"fa_{2026010000 + i}.pdf"), radky.Select(r => r.Split(';')[0]));
+            Assert.Equal("fa_2026010007.pdf;03.01.2026 01:44:04;7", radky[6]);
+            Assert.Equal(7, s.Prikazy.Count(p => p.StartsWith("MDTM ")));
+            Assert.Contains("LIST -r", s.Prikazy);
+            Assert.False(File.Exists(Path.Combine(_dir, Aplikace.SouborChyby)));
+        }
+
+        [Fact]
+        public void PrilisVelkyAdresarJeNeuplny()
+        {
+            using var s = new TestFtpServer(Faktury(10)) { Limit = 4 };
+            Assert.Equal(5, Aplikace.Spust(new[] { Parametry(s.Port, "hlavicka=0\r\n") }, _dir));
+            Assert.Equal(8, Csv.Split("\r\n", StringSplitOptions.RemoveEmptyEntries).Length);
+            Assert.Contains("může být neúplný (8 souborů)", Err);
         }
 
         [Fact]

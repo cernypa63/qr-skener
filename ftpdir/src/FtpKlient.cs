@@ -115,7 +115,11 @@ namespace FtpDir
             if (o.Kod != 250 && o.Kod != 200) throw new ChybaFtp("Adresář " + adresar + " nelze otevřít: " + o.Text);
         }
 
-        public List<string> List()
+        /// <summary>Server poslal při posledním výpisu jen část adresáře (Pure-FTPd: „Output truncated to N matches“).</summary>
+        public bool PosledniVypisZkraceny { get; private set; }
+
+        /// <summary>Výpis adresáře (LIST), volby např. "-r" = obráceně podle názvu.</summary>
+        public List<string> List(string volby = null)
         {
             Prikaz("TYPE A");
             var o = Prikaz("PASV");
@@ -129,7 +133,7 @@ namespace FtpDir
             byte[] data;
             using (var dc = Pripoj(ip.ToString(), port, _timeoutMs, "datový kanál FTP " + ip + ":" + port))
             {
-                o = Prikaz("LIST");
+                o = Prikaz(string.IsNullOrEmpty(volby) ? "LIST" : "LIST " + volby);
                 if (o.Kod != 150 && o.Kod != 125) throw new ChybaFtp("Výpis adresáře se nepovedl: " + o.Text);
                 using (var ms = new MemoryStream())
                 {
@@ -140,6 +144,7 @@ namespace FtpDir
             }
             o = Cti();
             if (o.Kod != 226 && o.Kod != 250) throw new ChybaFtp("Výpis adresáře se nepovedl: " + o.Text);
+            PosledniVypisZkraceny = o.Text.IndexOf("truncated", StringComparison.OrdinalIgnoreCase) >= 0;
 
             string text;
             try { text = new UTF8Encoding(false, true).GetString(data); }

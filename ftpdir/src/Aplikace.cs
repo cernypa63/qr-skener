@@ -7,7 +7,8 @@ namespace FtpDir
 {
     /// <summary>
     /// FTPDIR.exe soubor_parametru – vypíše soubory adresáře na FTP do CSV (soubor;datum;velikost).
-    /// Návratové kódy: 0 = OK, 2 = chybný soubor parametrů, 3 = chyba FTP, 4 = výstup nelze zapsat.
+    /// Návratové kódy: 0 = OK, 2 = chybný soubor parametrů, 3 = chyba FTP, 4 = výstup nelze zapsat,
+    /// 5 = CSV zapsáno, ale server nevypsal celý adresář (seznam může být neúplný).
     /// Při chybě se výstupní soubor smaže a popis chyby je v FTPDIR.err vedle exe.
     /// </summary>
     public static class Aplikace
@@ -43,7 +44,8 @@ namespace FtpDir
             catch (DirectoryNotFoundException) { }
 
             List<Polozka> soubory;
-            try { soubory = NactiSeznam(v); }
+            bool neuplny;
+            try { soubory = NactiSeznam(v, out neuplny); }
             catch (ChybaFtp e)
             {
                 ZapisChybu(err, e.Message + Environment.NewLine + "Server: " + v.Host + ":" + v.Port + ", adresář: " + v.Adresar);
@@ -62,17 +64,26 @@ namespace FtpDir
                 ZapisChybu(err, "Výstupní soubor " + v.Output + " nelze zapsat: " + e.Message);
                 return 4;
             }
+            if (neuplny)
+            {
+                ZapisChybu(err, "Server vypisuje jen omezený počet souborů a celý adresář se nepodařilo načíst. Seznam v "
+                    + v.Output + " může být neúplný (" + soubory.Count + " souborů)." + Environment.NewLine
+                    + "Server: " + v.Host + ":" + v.Port + ", adresář: " + v.Adresar);
+                return 5;
+            }
             return 0;
         }
 
-        public static List<Polozka> NactiSeznam(Vstup v)
+        public static List<Polozka> NactiSeznam(Vstup v) => NactiSeznam(v, out _);
+
+        public static List<Polozka> NactiSeznam(Vstup v, out bool neuplny)
         {
             using (var ftp = new FtpKlient(v.Host, v.Port, v.TimeoutSekund * 1000))
             {
                 ftp.Prihlas(v.Login, v.Heslo);
                 ftp.ZmenAdresar(v.Adresar);
                 var maska = Vstup.MaskaNaRegex(v.Maska);
-                var soubory = VypisFtp.Rozeber(ftp.List(), DateTime.Now)
+                var soubory = CelyVypis(ftp, out neuplny)
                     .FindAll(p => !p.Adresar && maska.IsMatch(p.Nazev));
                 var presne = ftp.Mdtm(soubory.ConvertAll(p => p.Nazev));
                 foreach (var p in soubory)
@@ -80,6 +91,43 @@ namespace FtpDir
                 soubory.Sort((a, b) => string.CompareOrdinal(a.Nazev, b.Nazev));
                 return soubory;
             }
+        }
+
+        /// <summary>
+        /// Když server výpis zkrátí (cesky-hosting: max. 3500 řádků), vypíše se adresář ještě obráceně podle názvu (LIST -r).
+        /// Pokud se oba výpisy překrývají, je seznam úplný; jinak se zkusí i řazení podle času a velikosti.
+        /// </summary>
+        private static List<Polozka> CelyVypis(FtpKlient ftp, out bool neuplny)
+        {
+            var ted = DateTime.Now;
+            var vzestupne = VypisFtp.Rozeber(ftp.List(), ted);
+            neuplny = false;
+            if (!ftp.PosledniVypisZkraceny) return vzestupne;
+
+            var vse = new Dictionary<string, Polozka>(StringComparer.Ordinal);
+            foreach (var p in vzestupne) vse[p.Nazev] = p;
+            var prvni = new HashSet<string>(vse.Keys, StringComparer.Ordinal);
+
+            neuplny = true;
+            foreach (var volby in new[] { "-r", "-t", "-tr", "-S", "-Sr" })
+            {
+                List<Polozka> cast;
+                bool zkraceny;
+                try
+                {
+                    cast = VypisFtp.Rozeber(ftp.List(volby), ted);
+                    zkraceny = ftp.PosledniVypisZkraceny;
+                }
+                catch (ChybaFtp) { break; }
+                var prekryv = false;
+                foreach (var p in cast)
+                {
+                    if (prvni.Contains(p.Nazev)) prekryv = true;
+                    vse[p.Nazev] = p;
+                }
+                if (!zkraceny || (volby == "-r" && prekryv)) { neuplny = false; break; }
+            }
+            return new List<Polozka>(vse.Values);
         }
 
         public static string Csv(List<Polozka> soubory, bool hlavicka)
