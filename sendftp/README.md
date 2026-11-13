@@ -60,4 +60,4 @@ if errorlevel 1 echo Odeslani se nepovedlo & type SENDFTP.err
   Kdo ale může na tomto počítači SENDFTP.exe spustit, může přes něj odesílat na FTP.
 - Pokud FTP server neumí šifrované spojení (TLS), jde heslo i soubor po síti nešifrovaně.
 
-Potřebuje .NET Framework 4.8 (je ve Windows 10 a 11).
+Potřebuje .NET Framework 4.6.2 nebo novější (je ve Windows 10, 11 a Windows Server 2016 a novějších).
