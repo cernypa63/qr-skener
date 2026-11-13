@@ -1,0 +1,44 @@
+name: FTPDIR pro Windows
+
+on:
+  push:
+    paths:
+      - "ftpdir/**"
+      - ".github/workflows/ftpdir.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ftpdir
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Testy
+        run: dotnet test tests
+      - name: Sestavení
+        run: dotnet build src -c Release -o out
+      - name: Kontrola spuštění
+        shell: powershell
+        run: |
+          $t = $env:RUNNER_TEMP
+          [IO.File]::WriteAllText("$t\bad.txt", "host=x`r`n")
+          ./out/FTPDIR.exe "$t\bad.txt"
+          if ($LASTEXITCODE -ne 2) { exit 1 }
+          Get-Content ./out/FTPDIR.err
+          [IO.File]::WriteAllText("$t\p.txt", "host=127.0.0.1`r`nport=1`r`nlogin=a`r`nheslo=b`r`nadresar=/`r`noutput=$t\seznam.csv`r`ntimeout=5`r`n")
+          ./out/FTPDIR.exe "$t\p.txt"
+          if ($LASTEXITCODE -ne 3) { exit 1 }
+          Get-Content ./out/FTPDIR.err
+          Remove-Item ./out/FTPDIR.err
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ftpdir-windows
+          path: |
+            ftpdir/out/FTPDIR.exe
+            ftpdir/out/FTPDIR.exe.config
