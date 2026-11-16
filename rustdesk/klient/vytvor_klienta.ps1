@@ -17,7 +17,11 @@ $znaky = $b64.ToCharArray(); [Array]::Reverse($znaky)
 $config = -join $znaky
 
 $url = "https://github.com/rustdesk/rustdesk/releases/download/$Verze/rustdesk-$Verze-x86_64.exe"
-$exe = Join-Path $Vystup ("rustdesk-licensed-" + $config + ".exe")
+$jmeno = "rustdesk-licensed-" + $config + ".exe"
+if ($jmeno.Length -gt 255) {
+    throw "Adresa serveru je prilis dlouha, jmeno exe by melo $($jmeno.Length) znaku (Windows dovoli 255). Pouzijte IP adresu nebo kratsi domenu."
+}
+$exe = Join-Path $Vystup $jmeno
 Write-Host "Stahuji $url"
 Invoke-WebRequest -Uri $url -OutFile $exe -UseBasicParsing
 Set-Content -Path (Join-Path $Vystup "config.txt") -Value $config -Encoding ASCII

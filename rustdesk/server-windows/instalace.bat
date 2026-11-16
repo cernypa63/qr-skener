@@ -7,15 +7,20 @@ set ADR=C:\RustDeskServer
 cd /d "%~dp0"
 for %%f in (hbbs.exe hbbr.exe nssm.exe) do if not exist "%%f" (echo Chybi %%f & pause & exit /b 2)
 if not exist "%ADR%" mkdir "%ADR%"
-copy /y hbbs.exe "%ADR%\" >nul
-copy /y hbbr.exe "%ADR%\" >nul
-copy /y nssm.exe "%ADR%\" >nul
+for %%s in (hbbs hbbr) do (
+  if exist "%ADR%\nssm.exe" "%ADR%\nssm.exe" stop RustDesk_%%s >nul 2>&1
+  if exist "%ADR%\nssm.exe" "%ADR%\nssm.exe" remove RustDesk_%%s confirm >nul 2>&1
+)
+for %%f in (hbbs.exe hbbr.exe nssm.exe) do (
+  copy /y %%f "%ADR%\" >nul || (echo Nelze prepsat %ADR%\%%f & pause & exit /b 3)
+)
+rem Sluzby bezi pod omezenym uctem LOCAL SERVICE, ktery smi zapisovat jen do slozky serveru.
+icacls "%ADR%" /grant "*S-1-5-19:(OI)(CI)M" >nul
 cd /d "%ADR%"
 for %%s in (hbbs hbbr) do (
-  nssm stop RustDesk_%%s >nul 2>&1
-  nssm remove RustDesk_%%s confirm >nul 2>&1
   nssm install RustDesk_%%s "%ADR%\%%s.exe"
   nssm set RustDesk_%%s AppDirectory "%ADR%"
+  nssm set RustDesk_%%s ObjectName "NT AUTHORITY\LocalService" ""
   nssm set RustDesk_%%s Start SERVICE_AUTO_START
   nssm start RustDesk_%%s
 )
