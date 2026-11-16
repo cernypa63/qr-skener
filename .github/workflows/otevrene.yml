@@ -1,0 +1,54 @@
+name: OTEVRENE pro Windows
+
+on:
+  push:
+    paths:
+      - "otevrene/**"
+      - ".github/workflows/otevrene.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: otevrene
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Testy
+        run: dotnet test tests
+      - name: Sestavení
+        run: dotnet build src -c Release -o out
+      - name: Kontrola se souborem otevřeným přes síť
+        shell: powershell
+        run: |
+          $exe = "$PWD\out\OTEVRENE.exe"
+          $d = "$env:RUNNER_TEMP\sdileni"
+          New-Item -ItemType Directory $d | Out-Null
+          [IO.File]::WriteAllText("$d\fa 1.dbf", "x")
+          New-SmbShare -Name OTEST -Path $d -FullAccess Everyone | Out-Null
+          & $exe
+          if ($LASTEXITCODE -ne 1) { Write-Output "cekan kod 1 (nic otevreno), je $LASTEXITCODE"; exit 1 }
+          $fs = [IO.File]::Open("\\127.0.0.1\OTEST\fa 1.dbf", 'Open', 'ReadWrite', 'None')
+          foreach ($p in @(@(), @("/net"), @("*.DBF"), @("127.0.0.1"))) {
+            $v = & $exe @p | Out-String
+            $k = $LASTEXITCODE
+            Write-Output "--- OTEVRENE $p (kod $k)"; Write-Output $v
+            if ($k -ne 0 -or $v -notmatch 'fa 1\.dbf' -or $v -notmatch '127\.0\.0\.1') { exit 1 }
+          }
+          & $exe "*.xls"
+          if ($LASTEXITCODE -ne 1) { exit 1 }
+          $fs.Dispose()
+          Start-Sleep 2
+          & $exe "fa 1"
+          if ($LASTEXITCODE -ne 1) { Write-Output "po zavreni ma byt kod 1"; exit 1 }
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: otevrene-windows
+          path: |
+            otevrene/out/OTEVRENE.exe
+            otevrene/out/OTEVRENE.exe.config
