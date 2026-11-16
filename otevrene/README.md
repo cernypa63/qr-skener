@@ -1,6 +1,6 @@
 # OTEVRENE.exe
 
-Vypíše do okna příkazového řádku, které soubory na tomto Windows serveru mají přes síť (sdílenou složku) otevřené jiné počítače: **IP adresu**, uživatele, ID a soubor.
+Vypíše do okna příkazového řádku, které soubory na tomto Windows serveru mají přes síť (sdílenou složku) otevřené jiné počítače: **IP adresu**, uživatele a soubor.
 
 Funguje na Windows Serveru 2008 R2 až 2025 (i na Windows 7–11). Nic se neinstaluje, stačí .NET Framework 3.5 nebo 4.x, který Windows už mají.
 
@@ -19,14 +19,12 @@ OTEVRENE.exe novak              jen soubory uživatele novak
 Výsledek:
 
 ```
-IP adresa     Uzivatel      ID  Soubor
-192.168.1.9   FIRMA\novak   77  D:\DATA\FAKTURY.DBF
-192.168.1.15  FIRMA\dvorak  81  D:\DATA\SKLAD.DBF
+IP adresa     Uzivatel      Soubor
+192.168.1.9   FIRMA\novak   D:\DATA\FAKTURY.DBF
+192.168.1.15  FIRMA\dvorak  D:\DATA\SKLAD.DBF
 
 Otevrenych souboru: 2  (SMB)
 ```
-
-Odpojení souboru, který někdo drží: `net file 77 /close` (77 je ID ze seznamu). Uživateli se může ztratit neuložená práce.
 
 ## Návratové kódy (ERRORLEVEL)
 

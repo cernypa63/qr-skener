@@ -9,7 +9,6 @@ namespace Otevrene
 {
     public class OtevrenySoubor
     {
-        public ulong Id;
         public string Ip = "";
         public string Uzivatel = "";
         public string Cesta = "";
@@ -27,18 +26,18 @@ namespace Otevrene
     }
 
     /// <summary>
-    /// OTEVRENE.exe [text|maska] [/net] - vypíše soubory otevřené přes síť (IP adresa, uživatel, ID, soubor).
+    /// OTEVRENE.exe [text|maska] [/net] - vypíše soubory otevřené přes síť (IP adresa, uživatel, soubor).
     /// Návratové kódy: 0 = něco je otevřené, 1 = nic otevřené, 2 = chybné parametry, 3 = chybí práva správce, 5 = jiná chyba.
     /// </summary>
     public static class Aplikace
     {
         public const string Napoveda =
             "Pouziti: OTEVRENE.exe [text|maska] [/net]\r\n" +
-            "Vypise soubory, ktere maji pres sit otevrene jine pocitace: IP adresa, uzivatel, ID, soubor.\r\n" +
+            "Vypise soubory, ktere maji pres sit otevrene jine pocitace: IP adresa, uzivatel, soubor.\r\n" +
             "  text   vypise jen radky, kde je text v souboru, IP adrese nebo uzivateli (napr. D:\\DATA nebo 192.168.1.15)\r\n" +
             "  maska  s * a ?, napr. D:\\DATA\\*.DBF\r\n" +
             "  /net   starsi zpusob zjisteni (jako na Windows Serveru 2008)\r\n" +
-            "Spoustejte jako spravce. Soubor jde odpojit prikazem: net file ID /close";
+            "Spoustejte jako spravce.";
 
         /// <param name="nacti">jenNetApi -> seznam otevřených souborů a popis použitého způsobu</param>
         public static int Spust(string[] args, Func<bool, KeyValuePair<string, List<OtevrenySoubor>>> nacti, TextWriter vystup)
@@ -94,15 +93,13 @@ namespace Otevrene
 
         public static string Tabulka(IList<OtevrenySoubor> seznam)
         {
-            var hlavicka = new[] { "IP adresa", "Uzivatel", "ID", "Soubor" };
-            var radky = seznam.Select(s => new[] { s.Ip, s.Uzivatel, s.Id.ToString(), s.Cesta }).ToList();
-            var sirky = new int[3];
-            for (var i = 0; i < 3; i++)
-                sirky[i] = Math.Max(hlavicka[i].Length, radky.Max(r => r[i].Length));
+            var hlavicka = new[] { "IP adresa", "Uzivatel", "Soubor" };
+            var radky = seznam.Select(s => new[] { s.Ip, s.Uzivatel, s.Cesta }).ToList();
+            var sirka0 = Math.Max(hlavicka[0].Length, radky.Max(r => r[0].Length));
+            var sirka1 = Math.Max(hlavicka[1].Length, radky.Max(r => r[1].Length));
             var sb = new StringBuilder();
             foreach (var r in new[] { hlavicka }.Concat(radky))
-                sb.Append(r[0].PadRight(sirky[0])).Append("  ").Append(r[1].PadRight(sirky[1])).Append("  ")
-                  .Append(r[2].PadLeft(sirky[2])).Append("  ").Append(r[3]).Append("\r\n");
+                sb.Append(r[0].PadRight(sirka0)).Append("  ").Append(r[1].PadRight(sirka1)).Append("  ").Append(r[2]).Append("\r\n");
             return sb.ToString();
         }
 

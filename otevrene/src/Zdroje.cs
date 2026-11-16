@@ -35,14 +35,13 @@ namespace Otevrene
             {
                 var scope = new ManagementScope(@"\\.\root\Microsoft\Windows\SMB");
                 scope.Connect();
-                var dotaz = new ObjectQuery("SELECT FileId, ClientComputerName, ClientUserName, Path FROM MSFT_SmbOpenFile");
+                var dotaz = new ObjectQuery("SELECT ClientComputerName, ClientUserName, Path FROM MSFT_SmbOpenFile");
                 var vysledek = new List<OtevrenySoubor>();
                 using (var hledani = new ManagementObjectSearcher(scope, dotaz))
                     foreach (ManagementObject o in hledani.Get())
                         using (o)
                             vysledek.Add(new OtevrenySoubor
                             {
-                                Id = Convert.ToUInt64(o["FileId"] ?? 0UL),
                                 Ip = Convert.ToString(o["ClientComputerName"]) ?? "",
                                 Uzivatel = Convert.ToString(o["ClientUserName"]) ?? "",
                                 Cesta = Convert.ToString(o["Path"]) ?? "",
@@ -74,7 +73,7 @@ namespace Otevrene
                 for (var i = 0; i < precteno; i++)
                 {
                     var f = (FILE_INFO_3)Marshal.PtrToStructure(new IntPtr(buf.ToInt64() + (long)i * velikost), typeof(FILE_INFO_3));
-                    vysledek.Add(new OtevrenySoubor { Id = (uint)f.fi3_id, Uzivatel = f.fi3_username ?? "", Cesta = f.fi3_pathname ?? "" });
+                    vysledek.Add(new OtevrenySoubor { Uzivatel = f.fi3_username ?? "", Cesta = f.fi3_pathname ?? "" });
                 }
             }
             finally { if (buf != IntPtr.Zero) NetApiBufferFree(buf); }

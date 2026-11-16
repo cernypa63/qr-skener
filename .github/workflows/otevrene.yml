@@ -41,14 +41,10 @@ jobs:
           }
           & $exe "*.xls"
           if ($LASTEXITCODE -ne 1) { exit 1 }
-          $radek = (& $exe "fa 1") | Where-Object { $_ -match 'fa 1\.dbf' } | Select-Object -First 1
-          $id = ($radek -split '\s+')[2]
-          Write-Output "net file $id /close"
-          net file $id /close
-          if ($LASTEXITCODE -ne 0) { exit 1 }
-          & $exe
-          if ($LASTEXITCODE -ne 1) { Write-Output "soubor se nezavrel"; exit 1 }
           $fs.Dispose()
+          Start-Sleep 2
+          & $exe "fa 1"
+          if ($LASTEXITCODE -ne 1) { Write-Output "po zavreni ma byt kod 1"; exit 1 }
           exit 0
       - uses: actions/upload-artifact@v4
         with:

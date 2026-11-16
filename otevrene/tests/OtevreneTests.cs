@@ -7,8 +7,8 @@ namespace Otevrene.Tests
 {
     public class OtevreneTests
     {
-        private static OtevrenySoubor S(string ip, string uz, string cesta, ulong id = 1) =>
-            new OtevrenySoubor { Ip = ip, Uzivatel = uz, Cesta = cesta, Id = id };
+        private static OtevrenySoubor S(string ip, string uz, string cesta) =>
+            new OtevrenySoubor { Ip = ip, Uzivatel = uz, Cesta = cesta };
 
         private static int Spust(List<OtevrenySoubor> data, out string text, params string[] args)
         {
@@ -23,8 +23,8 @@ namespace Otevrene.Tests
         {
             var data = new List<OtevrenySoubor>
             {
-                S("192.168.1.10", "FIRMA\\novak", @"D:\DATA\FAKTURY.DBF", 77),
-                S("192.168.1.9", "FIRMA\\svoboda", @"D:\DATA\SKLAD.DBF", 5),
+                S("192.168.1.10", "FIRMA\\novak", @"D:\DATA\FAKTURY.DBF"),
+                S("192.168.1.9", "FIRMA\\svoboda", @"D:\DATA\SKLAD.DBF"),
             };
             Assert.Equal(0, Spust(data, out var t));
             var radky = t.Split(new[] { "\r\n" }, StringSplitOptions.None);
@@ -32,7 +32,7 @@ namespace Otevrene.Tests
             Assert.StartsWith("192.168.1.9 ", radky[1]);
             Assert.EndsWith(@"D:\DATA\SKLAD.DBF", radky[1]);
             Assert.StartsWith("192.168.1.10", radky[2]);
-            Assert.Contains(" 77  ", radky[2]);
+            Assert.Equal("192.168.1.10  FIRMA\\novak    D:\\DATA\\FAKTURY.DBF", radky[2]);
             Assert.Contains("Otevrenych souboru: 2", t);
         }
 
