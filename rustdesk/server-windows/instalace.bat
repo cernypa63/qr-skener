@@ -11,8 +11,11 @@ for %%s in (hbbs hbbr) do (
   if exist "%ADR%\nssm.exe" "%ADR%\nssm.exe" stop RustDesk_%%s >nul 2>&1
   if exist "%ADR%\nssm.exe" "%ADR%\nssm.exe" remove RustDesk_%%s confirm >nul 2>&1
 )
-for %%f in (hbbs.exe hbbr.exe nssm.exe) do (
-  copy /y %%f "%ADR%\" >nul || (echo Nelze prepsat %ADR%\%%f & pause & exit /b 3)
+rem Kdyz se skript spousti primo z %ADR%, soubory uz jsou na miste a nekopiruji se.
+if /i not "%~dp0"=="%ADR%\" (
+  for %%f in (hbbs.exe hbbr.exe nssm.exe) do (
+    copy /y %%f "%ADR%\" >nul || (echo Nelze prepsat %ADR%\%%f & pause & exit /b 3)
+  )
 )
 rem Sluzby bezi pod omezenym uctem LOCAL SERVICE, ktery smi zapisovat jen do slozky serveru.
 icacls "%ADR%" /grant "*S-1-5-19:(OI)(CI)M" >nul
