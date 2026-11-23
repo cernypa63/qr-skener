@@ -83,6 +83,9 @@ namespace Rozeslat.Tests
         {
             Assert.Equal(',', Z("\"pozn\nvíce řádků\",mail\nx,a@b.cz\ny,c@d.cz\n").Oddelovac);
             Assert.Equal('\t', Z("\r\n\r\njmeno\temail\nx\tx@y.cz\n").Oddelovac);
+            var t = Z("Jméno;Adresa;E-mail\nNovák;Vodičkova 1, Praha 1, 110 00;a@b.cz\nDvořák;Brno, Česká 5, 602 00, CZ;c@d.cz\n");
+            Assert.Equal(';', t.Oddelovac);
+            Assert.Equal(2, SeznamAdres.Adresy(t, 2, true).Platne.Count);
         }
 
         [Fact]

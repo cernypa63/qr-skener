@@ -57,25 +57,44 @@ namespace Rozeslat
             return t;
         }
 
-        // Oddělovač, kterého je v prvních 20 záznamech (mimo uvozovky) nejvíc.
+        // Oddělovač, který dává v prvních 20 záznamech (mimo uvozovky) nejstálejší počet sloupců;
+        // čárky nebo středníky uvnitř textu se v jednotlivých řádcích liší, skutečný oddělovač ne.
         static char UrciOddelovac(string text)
         {
             var kandidati = new[] { ';', '\t', ',' };
-            var pocty = new int[kandidati.Length];
-            bool uv = false;
-            int zaznamu = 0;
-            for (int i = 0; i < text.Length && zaznamu < 20; i++)
+            var radky = new List<int[]>();
+            var akt = new int[kandidati.Length];
+            bool uv = false, neco = false;
+            for (int i = 0; i < text.Length && radky.Count < 20; i++)
             {
                 char z = text[i];
-                if (z == '"') uv = !uv;
-                else if (!uv && z == '\n') zaznamu++;
-                else if (!uv)
-                    for (int k = 0; k < kandidati.Length; k++)
-                        if (z == kandidati[k]) pocty[k]++;
+                if (z == '"') { uv = !uv; neco = true; }
+                else if (!uv && (z == '\n' || z == '\r'))
+                {
+                    if (neco) radky.Add(akt);
+                    akt = new int[kandidati.Length];
+                    neco = false;
+                }
+                else
+                {
+                    if (!char.IsWhiteSpace(z)) neco = true;
+                    if (!uv)
+                        for (int k = 0; k < kandidati.Length; k++)
+                            if (z == kandidati[k]) akt[k]++;
+                }
             }
-            int nej = 0;
-            for (int k = 1; k < kandidati.Length; k++)
-                if (pocty[k] > pocty[nej]) nej = k;
+            if (neco && radky.Count < 20) radky.Add(akt);
+            int nej = 0, nejStejnych = 0, nejPocet = 0;
+            for (int k = 0; k < kandidati.Length; k++)
+            {
+                var skup = radky.Where(r => r[k] > 0).GroupBy(r => r[k]).OrderByDescending(g => g.Count()).ThenByDescending(g => g.Key).FirstOrDefault();
+                if (skup == null) continue;
+                int stejnych = skup.Count();
+                if (stejnych > nejStejnych || (stejnych == nejStejnych && skup.Key > nejPocet))
+                {
+                    nej = k; nejStejnych = stejnych; nejPocet = skup.Key;
+                }
+            }
             return kandidati[nej];
         }
 
