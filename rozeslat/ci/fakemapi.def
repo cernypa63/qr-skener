@@ -1,0 +1,4 @@
+LIBRARY fakemapi
+EXPORTS
+    MAPISendMail
+    MAPISendMailW
