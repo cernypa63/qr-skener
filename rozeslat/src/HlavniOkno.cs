@@ -256,7 +256,8 @@ namespace Rozeslat
                 for (int i = 0; i < seznam.Count && !zastavit; i++)
                 {
                     string a = seznam[i];
-                    Ui(() => lStav.Text = "Odesílám " + (i + 1) + " z " + seznam.Count + ": " + a);
+                    int poradi = i + 1;
+                    Ui(() => lStav.Text = "Odesílám " + poradi + " z " + seznam.Count + ": " + a);
                     uint k;
                     try { k = Mapi.Odesli(a, predmet, text, prilohy, false, IntPtr.Zero); }
                     catch (DllNotFoundException) { k = 9999; }
@@ -266,7 +267,7 @@ namespace Rozeslat
                     else { chyb++; chyby.Add(a + ": " + popis); }
                     if (log != null)
                         try { File.AppendAllText(log, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + ";" + a + ";" + popis + "\r\n", new UTF8Encoding(true)); } catch { }
-                    Ui(() => pb.Value = i + 1);
+                    Ui(() => pb.Value = poradi);
                     if (k == 1 || k == 3 || k >= 9998) { zastavit = true; break; }
                     for (int s = 0; s < pauza * 10 && !zastavit && i < seznam.Count - 1; s++) Thread.Sleep(100);
                 }
