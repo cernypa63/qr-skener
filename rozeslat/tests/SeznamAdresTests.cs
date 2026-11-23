@@ -37,7 +37,7 @@ namespace Rozeslat.Tests
         [Fact]
         public void DuplicityANeplatne()
         {
-            var t = Z("email\nA@B.cz\na@b.cz\nnení adresa\n\n<c@d.cz>, e@f.eu\n");
+            var t = Z("email;pozn\nA@B.cz\na@b.cz\nnení adresa\n\n<c@d.cz>, e@f.eu\n");
             var v = SeznamAdres.Adresy(t, 0, true);
             Assert.Equal(new[] { "A@B.cz", "c@d.cz", "e@f.eu" }, v.Platne);
             Assert.Equal(1, v.Duplicity);
@@ -76,6 +76,13 @@ namespace Rozeslat.Tests
         {
             var t = Z("a;b;mail\nx\ny;z;q@w.cz\n");
             Assert.Equal(new[] { "q@w.cz" }, SeznamAdres.Adresy(t, 2, true).Platne);
+        }
+
+        [Fact]
+        public void OddelovacZDalsichRadku()
+        {
+            Assert.Equal(',', Z("\"pozn\nvíce řádků\",mail\nx,a@b.cz\ny,c@d.cz\n").Oddelovac);
+            Assert.Equal('\t', Z("\r\n\r\njmeno\temail\nx\tx@y.cz\n").Oddelovac);
         }
 
         [Fact]

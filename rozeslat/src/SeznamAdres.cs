@@ -57,24 +57,26 @@ namespace Rozeslat
             return t;
         }
 
+        // Oddělovač, kterého je v prvních 20 záznamech (mimo uvozovky) nejvíc.
         static char UrciOddelovac(string text)
         {
-            int konec = text.IndexOfAny(new[] { '\r', '\n' });
-            string prvni = konec < 0 ? text : text.Substring(0, konec);
-            char nej = ';';
-            int max = 0;
-            foreach (char c in new[] { ';', '\t', ',' })
+            var kandidati = new[] { ';', '\t', ',' };
+            var pocty = new int[kandidati.Length];
+            bool uv = false;
+            int zaznamu = 0;
+            for (int i = 0; i < text.Length && zaznamu < 20; i++)
             {
-                int n = 0;
-                bool uv = false;
-                foreach (char z in prvni)
-                {
-                    if (z == '"') uv = !uv;
-                    else if (z == c && !uv) n++;
-                }
-                if (n > max) { max = n; nej = c; }
+                char z = text[i];
+                if (z == '"') uv = !uv;
+                else if (!uv && z == '\n') zaznamu++;
+                else if (!uv)
+                    for (int k = 0; k < kandidati.Length; k++)
+                        if (z == kandidati[k]) pocty[k]++;
             }
-            return nej;
+            int nej = 0;
+            for (int k = 1; k < kandidati.Length; k++)
+                if (pocty[k] > pocty[nej]) nej = k;
+            return kandidati[nej];
         }
 
         static List<string[]> Rozdel(string text, char odd)
