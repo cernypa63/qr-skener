@@ -23,7 +23,7 @@ jobs:
       - name: Sestavení 64 a 32 bit
         run: |
           dotnet build src -c Release -o out
-          Remove-Item -Recurse -Force src\obj, src\bin
+          Remove-Item -Recurse -Force src\obj
           dotnet build src -c Release -o out32 -p:PlatformTarget=x86 -p:AssemblyName=ROZESLAT32
       - uses: ilammy/msvc-dev-cmd@v1
         with:
