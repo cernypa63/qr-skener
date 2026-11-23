@@ -252,6 +252,7 @@ namespace Rozeslat
             var vl = new Thread(() =>
             {
                 int ok = 0, chyb = 0;
+                bool logChyba = false;
                 var chyby = new List<string>();
                 for (int i = 0; i < seznam.Count && !zastavit; i++)
                 {
@@ -266,12 +267,12 @@ namespace Rozeslat
                     if (k == 0) { ok++; if (!zkusebni) Ui(() => odeslano.Add(a)); }
                     else { chyb++; chyby.Add(a + ": " + popis); }
                     if (log != null)
-                        try { File.AppendAllText(log, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + ";" + a + ";" + popis + "\r\n", new UTF8Encoding(true)); } catch { }
+                        try { File.AppendAllText(log, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + ";" + a + ";" + popis + "\r\n", new UTF8Encoding(true)); } catch { logChyba = true; }
                     Ui(() => pb.Value = poradi);
                     if (k == 1 || k == 3 || k >= 9998) { zastavit = true; break; }
                     for (int s = 0; s < pauza * 10 && !zastavit && i < seznam.Count - 1; s++) Thread.Sleep(100);
                 }
-                Ui(() => Hotovo(ok, chyb, chyby, seznam.Count, log));
+                Ui(() => Hotovo(ok, chyb, chyby, seznam.Count, log, logChyba));
             });
             vl.SetApartmentState(ApartmentState.STA);
             vl.IsBackground = true;
@@ -280,7 +281,7 @@ namespace Rozeslat
 
         void Ui(Action a) { try { BeginInvoke(a); } catch { } }
 
-        void Hotovo(int ok, int chyb, List<string> chyby, int celkem, string log)
+        void Hotovo(int ok, int chyb, List<string> chyby, int celkem, string log, bool logChyba)
         {
             NastavOdesilani(false);
             var sb = new StringBuilder();
@@ -289,7 +290,7 @@ namespace Rozeslat
             if (ok + chyb < celkem) sb.AppendLine("Zastaveno, neodesláno zbývajícím: " + (celkem - ok - chyb));
             foreach (var c in chyby.Take(15)) sb.AppendLine("  " + c);
             if (chyby.Count > 15) sb.AppendLine("  ...");
-            if (log != null) sb.AppendLine().AppendLine("Záznam: " + log);
+            if (log != null) sb.AppendLine().AppendLine((logChyba ? "Záznam se nepodařilo (celý) zapsat: " : "Záznam: ") + log);
             sb.AppendLine().Append("E-maily najdete v poštovním programu v Odeslané poště (nebo chvíli v Pošta k odeslání).");
             lStav.Text = "Hotovo: odesláno " + ok + " z " + celkem + ".";
             Prepocti();
