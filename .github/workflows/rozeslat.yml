@@ -1,0 +1,86 @@
+name: ROZESLAT pro Windows
+
+on:
+  push:
+    paths:
+      - "rozeslat/**"
+      - ".github/workflows/rozeslat.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: rozeslat
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Testy
+        run: dotnet test tests
+      - name: Sestavení 64 a 32 bit
+        run: |
+          dotnet build src -c Release -o out
+          dotnet build src -c Release -o out32 -p:PlatformTarget=x86 -p:AssemblyName=ROZESLAT32 -p:BaseIntermediateOutputPath=obj32/ -p:MSBuildProjectExtensionsPath=obj32/
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Zkušební MAPI klient 64 bit
+        run: cl /nologo /LD ci\fakemapi.c /Fe:ci\fakemapi64.dll /link /DEF:ci\fakemapi.def
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - name: Zkušební MAPI klient 32 bit
+        run: cl /nologo /LD ci\fakemapi.c /Fe:ci\fakemapi32.dll /link /DEF:ci\fakemapi.def
+      - name: Odeslání přes MAPI (64 i 32 bit)
+        shell: powershell
+        run: |
+          $t = $env:RUNNER_TEMP
+          $ci = (Resolve-Path ci).Path
+          foreach ($v in @('/reg:64', '/reg:32')) {
+            $dll = if ($v -eq '/reg:64') { "$ci\fakemapi64.dll" } else { "$ci\fakemapi32.dll" }
+            reg add "HKLM\SOFTWARE\Clients\Mail" /ve /d "FakeMapi" /f $v | Out-Null
+            reg add "HKLM\SOFTWARE\Clients\Mail\FakeMapi" /v DLLPath /d $dll /f $v | Out-Null
+            reg add "HKLM\SOFTWARE\Clients\Mail\FakeMapi" /v DLLPathEx /d $dll /f $v | Out-Null
+            reg add "HKLM\SOFTWARE\Microsoft\Windows Messaging Subsystem" /v MAPI /d 1 /f $v | Out-Null
+          }
+          $csv = "Jméno;Firma;E-mail`r`nNovák;ABC;novak@abc.cz`r`nDvořák;`"X; Y`";dvorak@xy.cz`r`nDup;Z;NOVAK@abc.cz`r`nŠpatný;Q;neni-adresa`r`n"
+          [IO.File]::WriteAllText("$t\adresy.csv", $csv, [Text.Encoding]::GetEncoding(1250))
+          [IO.File]::WriteAllText("$t\text.txt", "Dobrý den,`r`nžluťoučký kůň úpěl ďábelské ódy.`r`nS pozdravem", (New-Object Text.UTF8Encoding $false))
+          [IO.File]::WriteAllText("$t\priloha.pdf", "PDF")
+          foreach ($exe in @("out\ROZESLAT.exe", "out32\ROZESLAT32.exe")) {
+            $env:FAKEMAPI_OUT = "$t\mapi.txt"
+            if (Test-Path $env:FAKEMAPI_OUT) { Remove-Item $env:FAKEMAPI_OUT }
+            $p = Start-Process -FilePath $exe -ArgumentList '/test', "$t\adresy.csv", '0', 'Předmět – nabídka', "$t\text.txt", "$t\priloha.pdf" -Wait -PassThru -NoNewWindow
+            Write-Output "=== $exe kod $($p.ExitCode)"
+            Get-Content -Encoding UTF8 ROZESLAT_test.txt
+            $m = [IO.File]::ReadAllText($env:FAKEMAPI_OUT, [Text.Encoding]::UTF8)
+            Write-Output $m
+            if ($p.ExitCode -ne 0) { exit 1 }
+            $log = Get-Content -Raw -Encoding UTF8 ROZESLAT_test.txt
+            if ($log -notmatch 'platne=2 neplatne=1 duplicity=1') { exit 1 }
+            if (([regex]::Matches($m, '^W\|1\|1\|', 'Multiline')).Count -ne 2) { exit 1 }
+            if ($m -notmatch 'SMTP:novak@abc\.cz,\|Předmět – nabídka\|Dobrý den,\r\nžluťoučký kůň') { exit 1 }
+            if ($m -notmatch 'SMTP:dvorak@xy\.cz,') { exit 1 }
+            if ($m -notmatch 'priloha\.pdf,') { exit 1 }
+          }
+      - name: Okno se otevře
+        shell: powershell
+        run: |
+          $p = Start-Process -FilePath out\ROZESLAT.exe -PassThru
+          Start-Sleep 5
+          $p.Refresh()
+          Write-Output "Titulek: $($p.MainWindowTitle)"
+          if ($p.HasExited -or $p.MainWindowTitle -notmatch 'ROZESLAT') { exit 1 }
+          $p.Kill()
+      - name: Balíček
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item out\ROZESLAT.exe, out\ROZESLAT.exe.config, out32\ROZESLAT32.exe, out32\ROZESLAT32.exe.config, README.md dist\
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rozeslat-windows
+          path: rozeslat/dist/
