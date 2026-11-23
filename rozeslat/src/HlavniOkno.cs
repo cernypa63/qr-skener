@@ -263,7 +263,7 @@ namespace Rozeslat
                     catch (DllNotFoundException) { k = 9999; }
                     catch (Exception) { k = 9998; }
                     string popis = k == 9999 ? "v počítači chybí rozhraní MAPI" : k == 9998 ? "neočekávaná chyba" : Mapi.PopisChyby(k);
-                    if (k == 0) { ok++; Ui(() => odeslano.Add(a)); }
+                    if (k == 0) { ok++; if (!zkusebni) Ui(() => odeslano.Add(a)); }
                     else { chyb++; chyby.Add(a + ": " + popis); }
                     if (log != null)
                         try { File.AppendAllText(log, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + ";" + a + ";" + popis + "\r\n", new UTF8Encoding(true)); } catch { }
