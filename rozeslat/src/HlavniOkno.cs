@@ -290,7 +290,7 @@ namespace Rozeslat
             if (ok + chyb < celkem) sb.AppendLine("Zastaveno, neodesláno zbývajícím: " + (celkem - ok - chyb));
             foreach (var c in chyby.Take(15)) sb.AppendLine("  " + c);
             if (chyby.Count > 15) sb.AppendLine("  ...");
-            if (log != null) sb.AppendLine().AppendLine((logChyba ? "Záznam se nepodařilo (celý) zapsat: " : "Záznam: ") + log);
+            if (log != null) sb.AppendLine().AppendLine((logChyba ? "Některé řádky záznamu se nepodařilo zapsat: " : "Záznam: ") + log);
             sb.AppendLine().Append("E-maily najdete v poštovním programu v Odeslané poště (nebo chvíli v Pošta k odeslání).");
             lStav.Text = "Hotovo: odesláno " + ok + " z " + celkem + ".";
             Prepocti();
