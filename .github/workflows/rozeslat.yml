@@ -68,14 +68,33 @@ jobs:
             if ($m -notmatch 'priloha\.pdf,') { exit 1 }
           }
       - name: Okno se otevře
-        shell: powershell
+        shell: pwsh
         run: |
+          $t = $env:RUNNER_TEMP
+          $n = "$env:APPDATA\ROZESLAT"
+          New-Item -ItemType Directory -Force $n | Out-Null
+          $u = New-Object Text.UTF8Encoding $false
+          [IO.File]::WriteAllText("$n\nastaveni.txt", "csv=$t\adresy.csv`r`nsloupec=2`r`npredmet=Předmět – nabídka`r`npauza=2`r`n", $u)
+          [IO.File]::WriteAllText("$n\text.txt", "Dobrý den,`r`n`r`nposíláme Vám nabídku.`r`n`r`nS pozdravem", $u)
           $p = Start-Process -FilePath out\ROZESLAT.exe -PassThru
           Start-Sleep 5
           $p.Refresh()
           Write-Output "Titulek: $($p.MainWindowTitle)"
           if ($p.HasExited -or $p.MainWindowTitle -notmatch 'ROZESLAT') { exit 1 }
+          Add-Type -AssemblyName System.Drawing
+          Add-Type 'using System;using System.Runtime.InteropServices;public class W{[DllImport("user32.dll")]public static extern bool GetWindowRect(IntPtr h,out R r);[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);public struct R{public int L,T,Rr,B;}}'
+          [W]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
+          Start-Sleep 1
+          $r = New-Object W+R
+          [W]::GetWindowRect($p.MainWindowHandle, [ref]$r) | Out-Null
+          $b = New-Object Drawing.Bitmap ($r.Rr - $r.L), ($r.B - $r.T)
+          [Drawing.Graphics]::FromImage($b).CopyFromScreen($r.L, $r.T, 0, 0, $b.Size)
+          $b.Save("$PWD\nahled.png")
           $p.Kill()
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rozeslat-nahled
+          path: rozeslat/nahled.png
       - name: Balíček
         shell: powershell
         run: |
