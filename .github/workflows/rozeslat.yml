@@ -36,7 +36,7 @@ jobs:
       - name: Zkušební MAPI klient 32 bit
         run: cl /nologo /LD ci\fakemapi.c /Fe:ci\fakemapi32.dll /link /DEF:ci\fakemapi.def
       - name: Odeslání přes MAPI (64 i 32 bit)
-        shell: powershell
+        shell: pwsh
         run: |
           $t = $env:RUNNER_TEMP
           $ci = (Resolve-Path ci).Path
@@ -54,7 +54,7 @@ jobs:
           foreach ($exe in @("out\ROZESLAT.exe", "out32\ROZESLAT32.exe")) {
             $env:FAKEMAPI_OUT = "$t\mapi.txt"
             if (Test-Path $env:FAKEMAPI_OUT) { Remove-Item $env:FAKEMAPI_OUT }
-            $p = Start-Process -FilePath $exe -ArgumentList '/test', "$t\adresy.csv", '0', 'Předmět – nabídka', "$t\text.txt", "$t\priloha.pdf" -Wait -PassThru -NoNewWindow
+            $p = Start-Process -FilePath $exe -ArgumentList "/test `"$t\adresy.csv`" 0 `"Předmět – nabídka`" `"$t\text.txt`" `"$t\priloha.pdf`"" -Wait -PassThru -NoNewWindow
             Write-Output "=== $exe kod $($p.ExitCode)"
             Get-Content -Encoding UTF8 ROZESLAT_test.txt
             $m = [IO.File]::ReadAllText($env:FAKEMAPI_OUT, [Text.Encoding]::UTF8)
