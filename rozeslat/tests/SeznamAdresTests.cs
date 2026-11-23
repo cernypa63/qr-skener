@@ -78,6 +78,15 @@ namespace Rozeslat.Tests
             Assert.Equal(new[] { "q@w.cz" }, SeznamAdres.Adresy(t, 2, true).Platne);
         }
 
+        [Fact]
+        public void AdresaSeNemeni()
+        {
+            var t = Z("mail\no!neil@example.cz\n'a@b.cz'\n");
+            var v = SeznamAdres.Adresy(t, 0, true);
+            Assert.Equal(new[] { "a@b.cz" }, v.Platne);
+            Assert.Single(v.Neplatne);
+        }
+
         [Theory]
         [InlineData("novak@firma.cz", true)]
         [InlineData(" novak@firma.cz ", true)]

@@ -25,7 +25,7 @@ namespace Rozeslat
     public static class SeznamAdres
     {
         static readonly Regex EmailRe = new Regex(
-            @"[A-Za-z0-9._%+\-']+@[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}",
+            @"(?<![A-Za-z0-9._%+\-!#$&*/=?^`{|}~])[A-Za-z0-9_%+\-][A-Za-z0-9._%+\-']*@[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}",
             RegexOptions.CultureInvariant);
 
         public static Tabulka NactiSoubor(string cesta) => NactiBajty(File.ReadAllBytes(cesta));
@@ -159,7 +159,7 @@ namespace Rozeslat
                 if (shody.Count == 0) { v.Neplatne.Add("řádek " + (i + 1) + ": " + b); continue; }
                 foreach (Match m in shody)
                 {
-                    string a = m.Value.Trim('.', '\'');
+                    string a = m.Value;
                     if (videno.Add(a)) v.Platne.Add(a); else v.Duplicity++;
                 }
             }
