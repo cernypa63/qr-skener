@@ -79,6 +79,11 @@ namespace TzCz.Tests
         [InlineData("2036-07-15", "10:30", "x")]
         [InlineData("1995-07-15")]
         [InlineData("zitra")]
+        [InlineData("2036-07-15T")]
+        [InlineData("T10:30")]
+        [InlineData("")]
+        [InlineData(" ")]
+        [InlineData("-iso", "")]
         public void ChybneParametry(params string[] a)
         {
             var (kod, text) = Spust(DateTime.UtcNow, a);

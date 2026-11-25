@@ -20,17 +20,23 @@ namespace TzCz
         public static int Spust(string[] args, Func<DateTime> utcTed, TextWriter vystup)
         {
             var iso = false;
+            var zadano = false;
             var casti = new System.Collections.Generic.List<string>();
             foreach (var a in args)
             {
                 if (a == "/?" || a == "-?" || a == "-h" || a == "/h") return Napoveda(vystup);
                 if (string.Equals(a, "-iso", StringComparison.OrdinalIgnoreCase) || string.Equals(a, "/iso", StringComparison.OrdinalIgnoreCase)) iso = true;
-                else casti.AddRange(a.Split(new[] { ' ', 'T' }, StringSplitOptions.RemoveEmptyEntries));
+                else
+                {
+                    zadano = true;
+                    foreach (var c in a.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                        casti.AddRange(c.Split('T'));
+                }
             }
 
             DateTime mistni;
             TimeSpan posun;
-            if (casti.Count == 0)
+            if (!zadano)
             {
                 var utc = utcTed();
                 posun = PosunUtc(utc);
@@ -38,7 +44,7 @@ namespace TzCz
             }
             else
             {
-                if (casti.Count > 2 || !CtiCas(casti[0], casti.Count == 2 ? casti[1] : null, out mistni))
+                if (casti.Count == 0 || casti.Count > 2 || !CtiCas(casti[0], casti.Count == 2 ? casti[1] : null, out mistni))
                 {
                     vystup.WriteLine("Chyba: neplatné datum nebo čas: " + string.Join(" ", args));
                     return ChybaParametru;
