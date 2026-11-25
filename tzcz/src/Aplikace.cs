@@ -7,7 +7,7 @@ namespace TzCz
     /// <summary>
     /// TZCZ.exe [-iso] [datum [čas]] – vypíše posun českého času proti UTC: +01:00 (zimní) nebo +02:00 (letní).
     /// Bez data platí pro aktuální okamžik. Počítá podle pravidla EU (od roku 1996), ne podle nastavení Windows.
-    /// Návratové kódy: 1 = zimní čas, 2 = letní čas, 3 = chybné parametry.
+    /// Návratové kódy: 1 = zimní čas, 2 = letní čas, 3 = chybné parametry. Přepínač -- = nic nevypisovat.
     /// </summary>
     public static class Aplikace
     {
@@ -19,6 +19,14 @@ namespace TzCz
 
         public static int Spust(string[] args, Func<DateTime> utcTed, TextWriter vystup)
         {
+            if (Array.IndexOf(args, "--") >= 0)
+            {
+                var zbytek = Array.FindAll(args, a => a != "--");
+                return Array.Exists(zbytek, a => a == "/?" || a == "-?" || a == "-h" || a == "/h")
+                    ? ChybaParametru
+                    : Spust(zbytek, utcTed, TextWriter.Null);
+            }
+
             var iso = false;
             var zadano = false;
             var casti = new System.Collections.Generic.List<string>();
@@ -109,10 +117,11 @@ namespace TzCz
         private static int Napoveda(TextWriter vystup)
         {
             vystup.WriteLine("TZCZ - posun ceskeho casu proti UTC pro ISO 8601 (+01:00 zimni, +02:00 letni)");
-            vystup.WriteLine("Pouziti: TZCZ [-iso] [datum [cas]]");
+            vystup.WriteLine("Pouziti: TZCZ [--] [-iso] [datum [cas]]");
             vystup.WriteLine("  TZCZ                      posun pro aktualni okamzik");
             vystup.WriteLine("  TZCZ 2036-07-15 10:30     posun pro zadany cesky cas (take 15.7.2036 10:30:00)");
             vystup.WriteLine("  TZCZ -iso 15.7.2036 10:30 vypise 2036-07-15T10:30:00+02:00");
+            vystup.WriteLine("  TZCZ -- 2036-07-15 10:30  nic nevypise, vrati jen ERRORLEVEL");
             vystup.WriteLine("Datum bez casu = poledne. ERRORLEVEL: 1 = zimni, 2 = letni, 3 = chyba.");
             return ChybaParametru;
         }

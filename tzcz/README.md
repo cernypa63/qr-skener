@@ -6,6 +6,7 @@ TZCZ 2036-07-15 10:30        -> +02:00
 TZCZ 15.7.2036 10:30:00      -> +02:00
 TZCZ -iso 15.7.2036 10:30    -> 2036-07-15T10:30:00+02:00
 TZCZ -iso                    -> aktuální český čas, např. 2026-11-25T16:30:00+01:00
+TZCZ --                      -> nic nevypíše, vrátí jen ERRORLEVEL (jde kombinovat s datem)
 ```
 
 - Počítá podle pravidla EU, ne podle nastavení Windows: letní čas (+02:00) platí od poslední
@@ -19,6 +20,12 @@ TZCZ -iso                    -> aktuální český čas, např. 2026-11-25T16:30
   ```bat
   for /f %%i in ('TZCZ') do set POSUN=%%i
   ```
+  nebo bez výpisu jen podle ERRORLEVEL:
+  ```bat
+  TZCZ -- %DATUM% %CAS%
+  if errorlevel 3 goto chyba
+  if errorlevel 2 (set POSUN=+02:00) else (set POSUN=+01:00)
+  ```
 
 ## Návratové kódy (ERRORLEVEL)
 
@@ -26,6 +33,6 @@ TZCZ -iso                    -> aktuální český čas, např. 2026-11-25T16:30
 |---|---|
 | 1 | zimní čas, +01:00 |
 | 2 | letní čas, +02:00 |
-| 3 | chybné parametry (na výstupu je `Chyba: ...`) nebo nápověda `TZCZ /?` |
+| 3 | chybné parametry (na výstupu je `Chyba: ...`, s `--` nic) nebo nápověda `TZCZ /?` |
 
 Potřebuje .NET Framework 4.6.2 nebo novější (je ve Windows 10, 11 i Windows Server 2016).

@@ -91,6 +91,19 @@ namespace TzCz.Tests
             Assert.StartsWith("Chyba:", text);
         }
 
+        [Theory]
+        [InlineData(2, "--", "2036-07-15", "10:30")]
+        [InlineData(1, "2036-01-15", "--")]
+        [InlineData(2, "--", "-iso", "2036-07-15")]
+        [InlineData(3, "--", "2036-02-30")]
+        [InlineData(3, "--", "/?")]
+        public void BezVypisu(int kod, params string[] a) =>
+            Assert.Equal((kod, ""), Spust(DateTime.UtcNow, a));
+
+        [Fact]
+        public void BezVypisuAktualniCas() =>
+            Assert.Equal((2, ""), Spust(new DateTime(2026, 7, 1, 10, 0, 0, DateTimeKind.Utc), "--"));
+
         [Fact]
         public void Napoveda() => Assert.Equal(3, Spust(DateTime.UtcNow, "/?").kod);
     }
