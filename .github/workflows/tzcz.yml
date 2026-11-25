@@ -1,0 +1,53 @@
+name: TZCZ pro Windows
+
+on:
+  push:
+    paths:
+      - "tzcz/**"
+      - ".github/workflows/tzcz.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: tzcz
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Testy
+        run: dotnet test tests
+      - name: Sestavení
+        run: dotnet build src -c Release -o out
+      - name: Kontrola spuštění
+        shell: pwsh
+        run: |
+          function Over($ocek, $kod, [string[]]$a) {
+            $v = & ./out/TZCZ.exe @a
+            Write-Output "TZCZ $a -> $v ($LASTEXITCODE)"
+            if ($v -ne $ocek -or $LASTEXITCODE -ne $kod) { exit 1 }
+          }
+          Over "+02:00" 2 @("2036-07-15", "10:30")
+          Over "+01:00" 1 @("15.1.2036")
+          Over "2036-07-15T10:30:00+02:00" 2 @("-iso", "15.7.2036 10:30")
+          $tz = [TimeZoneInfo]::FindSystemTimeZoneById("Central Europe Standard Time")
+          $ted = [TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, $tz)
+          $ocek = if ($tz.IsDaylightSavingTime($ted)) { "+02:00" } else { "+01:00" }
+          $kod = if ($ocek -eq "+02:00") { 2 } else { 1 }
+          Over $ocek $kod @()
+          & ./out/TZCZ.exe -iso
+          & ./out/TZCZ.exe 2036-02-30
+          if ($LASTEXITCODE -ne 3) { exit 1 }
+          Over $null 2 @("--", "2036-07-15", "10:30")
+          Over $null 3 @("--", "2036-02-30")
+          Over $null $kod @("--")
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tzcz-windows
+          path: |
+            tzcz/out/TZCZ.exe
+            tzcz/out/TZCZ.exe.config

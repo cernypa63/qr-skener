@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net462</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>TZCZ</AssemblyName>
+    <RootNamespace>TzCz</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>TZCZ</Product>
+    <Description>Posun českého času proti UTC (+01:00 / +02:00) pro ISO 8601</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
